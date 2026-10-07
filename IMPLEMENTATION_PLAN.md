@@ -177,44 +177,44 @@ Requirements:
 ### Step A: HTML and PHP
 
 **Dashboard (`admin/dashboard.php`)**
-- [ ] Shell with sidebar: Dashboard, Registration Requests, Users (other items shown as "Coming soon").
-- [ ] Three plain summary numbers: pending requests, approved users, total users.
+- [x] Shell with sidebar: Dashboard, Registration Requests, Users (other items shown as "Coming soon").
+- [x] Three plain summary numbers: pending requests, approved users, total users.
 
 **Registration requests (`admin/requests.php`)**
-- [ ] Table of pending requests: username, full name, student number, email, role, assignment (program, or company and platoon), date submitted.
-- [ ] **Approve** button on each row (POST form with CSRF token).
-- [ ] **Reject** form on each row: a reason text box (required) and a Reject button (POST).
-- [ ] Rules enforced on the server when approving:
+- [x] Table of pending requests: username, full name, student number, email, role, assignment (program, or company and platoon), date submitted.
+- [x] **Approve** button on each row (POST form with CSRF token).
+- [x] **Reject** form on each row: a reason text box (required) and a Reject button (POST).
+- [x] Rules enforced on the server when approving:
   - Maximum 2 active Battalion S1 and 1 active Brigade S1. If the limit is reached, show an error and do not approve.
   - Show a warning next to the row if the platoon already has an active Platoon Leader, or the program already has an active Class President. The Admin can still approve.
-- [ ] On approval: set status `approved`, save `reviewed_by` and `reviewed_at`, write the "email" containing the username to `logs/mail.log`, and show the username in a flash message.
-- [ ] On rejection: set status `rejected`, save the reason, and write an "email" to `logs/mail.log`.
-- [ ] Write each approval and rejection to `audit_log`.
-- [ ] A **Rejected** tab or list so the Admin can see past decisions.
+- [x] On approval: set status `approved`, save `reviewed_by` and `reviewed_at`, write the "email" containing the username to `logs/mail.log`, and show the username in a flash message.
+- [x] On rejection: set status `rejected`, save the reason, and write an "email" to `logs/mail.log`.
+- [x] Write each approval and rejection to `audit_log`.
+- [x] A **Rejected** tab or list so the Admin can see past decisions.
 
 **Users (`admin/users.php`)**
-- [ ] Table of all users with role and status, and a search box (plain GET form).
-- [ ] Actions as POST forms: **Deactivate** (with reason), **Reactivate**, and **Reset password** (shows a temporary password once, sets `must_change_password`).
-- [ ] The Admin cannot deactivate their own account.
+- [x] Table of all users with role and status, and a search box (plain GET form).
+- [x] Actions as POST forms: **Deactivate** (with reason), **Reactivate**, and **Reset password** (shows a temporary password once, sets `must_change_password`).
+- [x] The Admin cannot deactivate their own account.
 
 **Test checklist for step A**
-- [ ] Approve a Platoon Leader, then log in as that user and reach the dashboard.
-- [ ] Reject a registration with a reason, then confirm the reason shows on the log-in page.
-- [ ] Try to approve a third Battalion S1 and confirm it is blocked.
-- [ ] A non-Admin who opens `/UnitSync/admin/requests.php` directly is redirected.
-- [ ] A deactivated user cannot log in. Reactivating restores access.
-- [ ] After a password reset, the user must change the password at the next log in.
+- [x] Approve a Platoon Leader, then log in as that user and reach the dashboard.
+- [x] Reject a registration with a reason, then confirm the reason shows on the log-in page.
+- [x] Try to approve a third Battalion S1 and confirm it is blocked.
+- [x] A non-Admin who opens `/UnitSync/admin/requests.php` directly is redirected.
+- [x] A deactivated user cannot log in. Reactivating restores access.
+- [x] After a password reset, the user must change the password at the next log in.
 
 ### Step B: CSS
-- [ ] Dashboard shell: fixed top bar, left navigation with the active item highlighted, scrolling content area.
-- [ ] Summary cards, tables (hover rows), status badges (pending, approved, rejected, deactivated), buttons.
-- [ ] Mobile layout for the shell (the drawer's look, without the toggle behavior yet).
+- [x] Dashboard shell: fixed top bar, left navigation with the active item highlighted, scrolling content area.
+- [x] Summary cards, tables (hover rows), status badges (pending, approved, rejected, deactivated), buttons.
+- [x] Mobile layout for the shell (the drawer's look, without the toggle behavior yet).
 
 ### Step C: JavaScript
-- [ ] `assets/js/ui.js`: `showToast()` and `showConfirm()`.
-- [ ] Approve and Deactivate open a confirmation modal. Reject opens a modal with the reason text area.
-- [ ] Flash messages appear as toasts.
-- [ ] Mobile menu toggle for the navigation drawer, and the Sign out confirmation modal.
+- [x] `assets/js/ui.js`: `showToast()` and `showConfirm()`.
+- [x] Approve and Deactivate open a confirmation modal. Reject opens a modal with the reason text area.
+- [x] Flash messages appear as toasts.
+- [x] Mobile menu toggle for the navigation drawer, and the Sign out confirmation modal.
 
 ---
 
