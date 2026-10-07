@@ -122,53 +122,53 @@ Requirements:
 ### Step A: HTML and PHP
 
 **Registration (`auth/register.php`)**
-- [ ] Fields: first name, middle name, last name, student number, email, password, confirm password, role, consent checkbox.
-- [ ] Role-specific fields, always visible in this step with a hint (JS will show and hide them later):
+- [x] Fields: first name, middle name, last name, student number, email, password, confirm password, role, consent checkbox.
+- [x] Role-specific fields, always visible in this step with a hint (JS will show and hide them later):
   - **Program** (dropdown): required for Class President.
   - **Company and Platoon** (one dropdown grouped by company, for example "Alpha - 1st"): required for Platoon Leader.
   - Battalion S1 and Brigade S1: nothing extra.
-- [ ] Server validation, with a plain error message next to each field:
+- [x] Server validation, with a plain error message next to each field:
   - Required fields, valid email, password policy (at least 10 characters with mixed types), matching passwords, consent checked.
   - Unique student number and email.
   - Program required for Class President. Company and platoon required for Platoon Leader, and the platoon must belong to the company.
-- [ ] On success: insert the user with status `pending`, hash the password, and generate the username (`PL-2026-0001`, `CP-`, `BN-`, `BR-`) with the next sequence number for that role and year.
-- [ ] Redirect to a confirmation page that shows the generated username and says the account is waiting for Admin approval.
-- [ ] Keep the entered values in the form after an error (except passwords).
+- [x] On success: insert the user with status `pending`, hash the password, and generate the username (`PL-2026-0001`, `CP-`, `BN-`, `BR-`) with the next sequence number for that role and year.
+- [x] Redirect to a confirmation page that shows the generated username and says the account is waiting for Admin approval.
+- [x] Keep the entered values in the form after an error (except passwords).
 
 **Log in (`auth/login.php`) and log out (`auth/logout.php`)**
-- [ ] Username and password form, with the "Don't have an account? Register" link.
-- [ ] Check with `password_verify()`.
-- [ ] Show a plain message for each account status: pending ("Your registration is being processed."), rejected (the Admin's reason), deactivated (the reason).
-- [ ] Rate limit: 5 failed attempts locks the username for 10 minutes, using `login_attempts`.
-- [ ] On success: `session_regenerate_id(true)`, then redirect to the dashboard for the role.
-- [ ] If `must_change_password` is set, redirect to `auth/change_password.php` and block every other page until it is done.
-- [ ] Logout destroys the session. The Sign out link is a plain POST form button in this step.
+- [x] Username and password form, with the "Don't have an account? Register" link.
+- [x] Check with `password_verify()`.
+- [x] Show a plain message for each account status: pending ("Your registration is being processed."), rejected (the Admin's reason), deactivated (the reason).
+- [x] Rate limit: 5 failed attempts locks the username for 10 minutes, using `login_attempts`.
+- [x] On success: `session_regenerate_id(true)`, then redirect to the dashboard for the role.
+- [x] If `must_change_password` is set, redirect to `auth/change_password.php` and block every other page until it is done.
+- [x] Logout destroys the session. The Sign out link is a plain POST form button in this step.
 
 **Change password (`auth/change_password.php`)**
-- [ ] Current password, new password, confirm. Apply the password policy and clear `must_change_password`.
+- [x] Current password, new password, confirm. Apply the password policy and clear `must_change_password`.
 
 **Admin setup (`setup_admin.php`)**
-- [ ] One-time script. It reads the username and password from `config/config.local.php`, creates the Admin (status `approved`, `must_change_password` on), and refuses to run if an Admin already exists. Delete it afterward.
+- [x] One-time script. It reads the username and password from `config/config.local.php`, creates the Admin (status `approved`, `must_change_password` on), and refuses to run if an Admin already exists. Delete it afterward.
 
 **Test checklist for step A**
-- [ ] Register one account of each role. Each gets a unique, correctly formatted username.
-- [ ] A duplicate student number or email is rejected with a message next to the field.
-- [ ] Missing program (Class President) or missing platoon (Platoon Leader) is rejected.
-- [ ] A pending account cannot log in and sees the pending message.
-- [ ] Five wrong passwords trigger the lockout message.
-- [ ] The Admin logs in and is forced to change the password.
-- [ ] Open the `users` table in phpMyAdmin. Passwords are hashes, not plain text.
+- [x] Register one account of each role. Each gets a unique, correctly formatted username.
+- [x] A duplicate student number or email is rejected with a message next to the field.
+- [x] Missing program (Class President) or missing platoon (Platoon Leader) is rejected.
+- [x] A pending account cannot log in and sees the pending message.
+- [x] Five wrong passwords trigger the lockout message.
+- [x] The Admin logs in and is forced to change the password.
+- [x] Open the `users` table in phpMyAdmin. Passwords are hashes, not plain text.
 
 ### Step B: CSS
-- [ ] `assets/css/style.css` with the color variables from `UI_DESIGN.md` section 5.
-- [ ] Centered card layout for the log in, registration, and change password pages.
-- [ ] Form styles: labels, inputs, focus ring, inline error text, buttons with hover.
-- [ ] Banner styles for the status messages (success, error, warning, info) with icons.
+- [x] `assets/css/style.css` with the color variables from `UI_DESIGN.md` section 5.
+- [x] Centered card layout for the log in, registration, and change password pages.
+- [x] Form styles: labels, inputs, focus ring, inline error text, buttons with hover.
+- [x] Banner styles for the status messages (success, error, warning, info) with icons.
 
 ### Step C: JavaScript
-- [ ] `assets/js/register.js`: show or hide the Program and Company/Platoon fields depending on the chosen role.
-- [ ] Optionally upgrade the grouped dropdown into two dependent dropdowns (Company, then Platoon) using `api/companies_platoons.php`, as in `FEATURE.md` section 2.2.
-- [ ] Show and hide password toggle (optional).
+- [x] `assets/js/register.js`: show or hide the Program and Company/Platoon fields depending on the chosen role.
+- [x] Optionally upgrade the grouped dropdown into two dependent dropdowns (Company, then Platoon) using `api/companies_platoons.php`, as in `FEATURE.md` section 2.2.
+- [x] Show and hide password toggle (optional).
 
 ---
 

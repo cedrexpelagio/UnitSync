@@ -9,7 +9,18 @@ date_default_timezone_set('Asia/Manila');
 
 // Base URL definition
 if (!defined('BASE_URL')) {
-    define('BASE_URL', 'http://localhost/UnitSync');
+    if (isset($_SERVER['HTTP_HOST'])) {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        // Find if running under /Backend_ni_Ced/UnitSync or /UnitSync
+        if (strpos($_SERVER['REQUEST_URI'] ?? '', '/Backend_ni_Ced/UnitSync') !== false || strpos($scriptDir, '/Backend_ni_Ced/UnitSync') !== false) {
+            define('BASE_URL', $protocol . $_SERVER['HTTP_HOST'] . '/Backend_ni_Ced/UnitSync');
+        } else {
+            define('BASE_URL', $protocol . $_SERVER['HTTP_HOST'] . '/UnitSync');
+        }
+    } else {
+        define('BASE_URL', 'http://localhost/UnitSync');
+    }
 }
 
 // Session security configuration
