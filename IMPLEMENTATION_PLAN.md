@@ -221,12 +221,12 @@ Requirements:
 ## Stage 3: Platoon Leader Dashboard (placeholder)
 
 ### Step A: HTML and PHP (`leader/dashboard.php`)
-- [ ] Guarded by `require_role('platoon_leader')`.
-- [ ] Welcome card: full name, role, username, and the assigned company and platoon.
-- [ ] Sidebar: Dashboard, Add Cadet, View Cadets, Take Attendance. The last three show "Coming soon" and do not link to pages yet.
+- [x] Guarded by `require_role('platoon_leader')`.
+- [x] Welcome card: full name, role, username, and the assigned company and platoon.
+- [x] Sidebar: Dashboard, Add Cadet, View Cadets, Take Attendance. The last three show "Coming soon" and do not link to pages yet.
 
 ### Steps B and C
-- [ ] Reuse the shell styles and the shared `ui.js` (no new CSS or JS beyond a "Coming soon" badge).
+- [x] Reuse the shell styles and the shared `ui.js` (no new CSS or JS beyond a "Coming soon" badge).
 
 **Test:** a Platoon Leader reaches only this dashboard, and opening any `/admin/` page redirects away.
 
@@ -235,9 +235,9 @@ Requirements:
 ## Stage 4: Class President Dashboard (placeholder)
 
 ### Step A: HTML and PHP (`president/dashboard.php`)
-- [ ] Guarded by `require_role('class_president')`.
-- [ ] Welcome card: full name, role, username, and the assigned program.
-- [ ] A short note: "Your section's attendance will appear here."
+- [x] Guarded by `require_role('class_president')`.
+- [x] Welcome card: full name, role, username, and the assigned program.
+- [x] A short note: "Your section's attendance will appear here."
 
 **Test:** a Class President reaches only this dashboard.
 
@@ -246,8 +246,8 @@ Requirements:
 ## Stage 5: Battalion S1 and Brigade S1 Dashboards (placeholder)
 
 ### Step A: HTML and PHP (`s1/dashboard.php`)
-- [ ] Guarded by `require_role('battalion_s1', 'brigade_s1')`. One page shared by both roles, showing the role name in the welcome card.
-- [ ] Sidebar: Dashboard, Cadet Roster, Review Attendance, View Attendance. The last three show "Coming soon".
+- [x] Guarded by `require_role('battalion_s1', 'brigade_s1')`. One page shared by both roles, showing the role name in the welcome card.
+- [x] Sidebar: Dashboard, Cadet Roster, Review Attendance, View Attendance. The last three show "Coming soon".
 
 **Test:** both S1 roles log in and reach the same dashboard, and no other role can open it.
 
@@ -255,15 +255,15 @@ Requirements:
 
 ## 4. Definition of Done for the MVP
 
-- [ ] All five roles can register, be approved or rejected, and log in.
-- [ ] Rejected and deactivated users see the reason on the log-in page.
-- [ ] Every protected page checks the role on the server.
-- [ ] No `alert()`, `confirm()`, or `prompt()` anywhere (search the project to confirm).
-- [ ] Every query uses prepared statements, and every printed value is escaped.
-- [ ] Every state-changing form has a CSRF token.
-- [ ] The pages work at phone width, and the registration and approval flow still works with JavaScript turned off.
-- [ ] `sql/schema.sql` and `sql/seed.sql` recreate the tables from scratch.
-- [ ] Everything is committed to git.
+- [x] All five roles can register, be approved or rejected, and log in.
+- [x] Rejected and deactivated users see the reason on the log-in page.
+- [x] Every protected page checks the role on the server.
+- [x] No `alert()`, `confirm()`, or `prompt()` anywhere (search the project to confirm).
+- [x] Every query uses prepared statements, and every printed value is escaped.
+- [x] Every state-changing form has a CSRF token.
+- [x] The pages work at phone width, and the registration and approval flow still works with JavaScript turned off.
+- [x] `sql/schema.sql` and `sql/seed.sql` recreate the tables from scratch.
+- [x] Everything is committed to git.
 
 ---
 
