@@ -80,25 +80,25 @@ Every stage follows **A: HTML and PHP, then B: CSS, then C: JS**, and stops afte
 A Platoon Leader cannot take attendance until sessions exist, so this comes first.
 
 ### Step A: HTML and PHP
-- [ ] Tables: `terms` (id, name, start_date, end_date, is_active), `training_sessions` (id, term_id, session_date, label, status: scheduled, held, cancelled).
-- [ ] `admin/terms.php`: create a term, activate one (only one active at a time, enforced in a transaction).
-- [ ] `admin/sessions.php`: for the active term, add a session (date, label), edit it, and set its status. Default 15 sessions, with a "Generate N weekly sessions from a start date" form (N configurable).
-- [ ] Add "Training Sessions" to the Admin sidebar (currently "Coming soon").
-- [ ] Audit log entries for term and session changes.
+- [x] Tables: `terms` (id, name, start_date, end_date, is_active), `training_sessions` (id, term_id, session_date, label, status: scheduled, held, cancelled).
+- [x] `admin/terms.php`: create a term, activate one (only one active at a time, enforced in a transaction).
+- [x] `admin/sessions.php`: for the active term, add a session (date, label), edit it, and set its status. Default 15 sessions, with a "Generate N weekly sessions from a start date" form (N configurable).
+- [x] Add "Training Sessions" to the Admin sidebar (currently "Coming soon").
+- [x] Audit log entries for term and session changes.
 
 **Test:** one active term at a time. Sessions appear in date order. A cancelled session is shown as cancelled.
 
 ### Step B: CSS
-- [ ] Reuse table, badge, and form styles. Add badges for scheduled, held, cancelled.
+- [x] Reuse table, badge, and form styles. Add badges for scheduled, held, cancelled.
 
 ### Step C: JS
-- [ ] Confirmation modal for activating a term and cancelling a session (`showConfirm()`).
+- [x] Confirmation modal for activating a term and cancelling a session (`showConfirm()`).
 
 ---
 
 ## Stage PL-2: Database for Cadets and Attendance
 
-### Step A: SQL only (`sql/migrations/001_...sql`, merged into `schema.sql`)
+### Step A: SQL only (`sql/migrations/003_...sql`, merged into `schema.sql`)
 
 | Table | Key columns |
 |---|---|
@@ -107,9 +107,9 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 | `attendance_records` | id, cadet_id, session_id, status (P, A, L, E), minutes_late (nullable), excuse_reason (nullable), document_path (nullable, unused for now), marked_by, updated_at, UNIQUE (cadet_id, session_id) |
 | `attendance_submissions` | id, platoon_id, session_id, state (draft, submitted, returned, approved), submitted_by, submitted_at, battalion_approved_by, battalion_approved_at, brigade_approved_by, brigade_approved_at, remarks, updated_at, UNIQUE (platoon_id, session_id) |
 
-- [ ] InnoDB, foreign keys, utf8mb4, unique constraints as listed.
-- [ ] Seed: nothing new needed (programs, companies, and platoons already exist).
-- [ ] Helper `next_cadet_code()` in `includes/helpers.php`, using a transaction or a locked sequence query so two cadets never get the same code.
+- [x] InnoDB, foreign keys, utf8mb4, unique constraints as listed.
+- [x] Seed: nothing new needed (programs, companies, and platoons already exist).
+- [x] Helper `next_cadet_code()` in `includes/helpers.php`, using a transaction or a locked sequence query so two cadets never get the same code.
 
 **Done when:** the migration runs on top of the MVP database without errors, and `schema.sql` rebuilds everything from an empty database.
 
