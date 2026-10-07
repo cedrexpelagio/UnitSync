@@ -4,6 +4,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `training_sessions`;
+DROP TABLE IF EXISTS `terms`;
 DROP TABLE IF EXISTS `audit_log`;
 DROP TABLE IF EXISTS `login_attempts`;
 DROP TABLE IF EXISTS `user_assignments`;
@@ -94,3 +96,29 @@ CREATE TABLE `audit_log` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `fk_audit_actor` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Terms / Semesters (only one active at a time)
+CREATE TABLE `terms` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(150) NOT NULL,
+    `start_date` DATE NOT NULL,
+    `end_date` DATE NOT NULL,
+    `is_active` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_terms_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Training sessions per term
+CREATE TABLE `training_sessions` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `term_id` INT NOT NULL,
+    `session_date` DATE NOT NULL,
+    `label` VARCHAR(100) NOT NULL,
+    `status` ENUM('scheduled', 'held', 'cancelled') NOT NULL DEFAULT 'scheduled',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_sessions_term_date` (`term_id`, `session_date`),
+    CONSTRAINT `fk_sessions_term` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

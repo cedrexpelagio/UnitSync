@@ -35,3 +35,22 @@ function format_role_name(string $role): string {
     ];
     return $roles[$role] ?? ucwords(str_replace('_', ' ', $role));
 }
+
+function log_audit(PDO $pdo, ?int $actorId, string $action, string $entity, ?int $entityId = null, ?string $details = null): void {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO audit_log (actor_id, action, entity, entity_id, details, created_at)
+            VALUES (:actor_id, :action, :entity, :entity_id, :details, NOW())
+        ");
+        $stmt->execute([
+            'actor_id' => $actorId,
+            'action' => $action,
+            'entity' => $entity,
+            'entity_id' => $entityId,
+            'details' => $details
+        ]);
+    } catch (Throwable $e) {
+        error_log("Failed to write to audit_log: " . $e->getMessage());
+    }
+}
+

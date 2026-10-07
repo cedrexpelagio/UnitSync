@@ -241,6 +241,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Password visibility toggle (Eye icon)
     initPasswordToggles();
+
+    // 5. Term Activation confirmation modal
+    document.querySelectorAll('.activate-term-form').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const termName = form.dataset.termName || 'this term';
+            const confirmed = await showConfirm({
+                title: 'Activate Academic Term',
+                message: `Are you sure you want to activate <strong>${termName}</strong>? The currently active term will become inactive.`,
+                confirmText: 'Set as Active',
+                cancelText: 'Cancel',
+                isDanger: false
+            });
+            if (confirmed) {
+                form.submit();
+            }
+        });
+    });
+
+    // 6. Cancel Training Session confirmation modal
+    document.querySelectorAll('.cancel-session-form').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionLabel = form.dataset.sessionLabel || 'this session';
+            const confirmed = await showConfirm({
+                title: 'Cancel Training Session',
+                message: `Are you sure you want to cancel <strong>${sessionLabel}</strong>?`,
+                confirmText: 'Cancel Session',
+                cancelText: 'Keep Scheduled',
+                isDanger: true
+            });
+            if (confirmed) {
+                form.submit();
+            }
+        });
+    });
 });
 
 function initPasswordToggles() {
