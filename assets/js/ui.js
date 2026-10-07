@@ -238,4 +238,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showToast(msgEl.textContent, type);
     });
+
+    // 4. Password visibility toggle (Eye icon)
+    initPasswordToggles();
 });
+
+function initPasswordToggles() {
+    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.dataset.target;
+            const input = document.getElementById(targetId);
+            if (!input) return;
+
+            const eyeOpen = btn.querySelector('.eye-open');
+            const eyeClosed = btn.querySelector('.eye-closed');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (eyeOpen) eyeOpen.style.display = 'none';
+                if (eyeClosed) eyeClosed.style.display = 'inline';
+                btn.setAttribute('aria-label', 'Hide password');
+            } else {
+                input.type = 'password';
+                if (eyeOpen) eyeOpen.style.display = 'inline';
+                if (eyeClosed) eyeClosed.style.display = 'none';
+                btn.setAttribute('aria-label', 'Show password');
+            }
+        });
+    });
+}
