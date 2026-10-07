@@ -352,7 +352,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div style="margin-top: 24px; display: flex; gap: 12px; align-items: center;">
-            <button type="submit" class="btn btn-primary" <?= (!$active_term || !$platoon_id) ? 'disabled' : '' ?>>
+            <button type="submit" class="btn btn-primary" id="enroll-cadet-btn">
                 Enroll Cadet
             </button>
             <a href="<?= BASE_URL ?>/leader/dashboard.php" class="btn btn-secondary">Cancel</a>
@@ -422,6 +422,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hasClientError) {
             e.preventDefault();
+            if (typeof showToast === 'function') {
+                showToast('Please check the highlighted fields above.', 'error');
+            }
             const firstInvalid = form.querySelector('.is-invalid');
             if (firstInvalid) firstInvalid.focus();
         }

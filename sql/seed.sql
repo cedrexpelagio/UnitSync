@@ -22,3 +22,9 @@ INSERT INTO `platoons` (`id`, `company_id`, `name`) VALUES
 (3, 2, '1st Platoon'),
 (4, 2, '2nd Platoon')
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+
+-- Default Active Term
+INSERT INTO `terms` (`id`, `name`, `start_date`, `end_date`, `is_active`) VALUES
+(1, '1st Semester AY 2026-2027', '2026-08-01', '2026-12-31', 1)
+ON DUPLICATE KEY UPDATE `is_active` = VALUES(`is_active`);
+
