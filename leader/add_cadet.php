@@ -36,6 +36,9 @@ $active_term = $stmt->fetch();
 $stmt = $pdo->query("SELECT id, code, name FROM programs ORDER BY code ASC");
 $programs = $stmt->fetchAll();
 
+// Whether this account is able to enroll cadets right now
+$can_enroll = $active_term && $platoon_id && $company_id;
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -206,7 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->commit();
 
-            set_flash('success', "Cadet <strong>" . e($first_name . ' ' . $last_name) . "</strong> enrolled successfully! Generated Cadet Code: <strong>" . e($cadet_code) . "</strong>");
+            // Plain-text message (no HTML tags) so it displays correctly whether or not
+            // the flash renderer escapes its output.
+            set_flash('success', 'Cadet ' . e($first_name . ' ' . $last_name) . ' was enrolled successfully. Cadet Code: ' . e($cadet_code));
             redirect('leader/add_cadet.php');
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
@@ -218,230 +223,358 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Field labels used by the error summary
+$field_labels = [
+    'last_name'      => 'Last name',
+    'first_name'     => 'First name',
+    'middle_name'    => 'Middle name',
+    'birthday'       => 'Birthday',
+    'gender'         => 'Gender',
+    'program_id'     => 'Academic program',
+    'student_number' => 'Student number',
+    'email'          => 'Email address',
+    'contact_number' => 'Contact number',
+];
+
+// Small helper: renders the error message under a field
+$field_error = function (string $name) use ($errors): string {
+    if (!isset($errors[$name])) {
+        return '';
+    }
+    return '<span class="field-error" id="' . e($name) . '-error" role="alert">' . e($errors[$name]) . '</span>';
+};
+
+// Small helper: attributes shared by invalid inputs
+$invalid_attrs = function (string $name) use ($errors): string {
+    return isset($errors[$name])
+        ? ' aria-invalid="true" aria-describedby="' . e($name) . '-error"'
+        : '';
+};
+
 $page_title = 'Add Cadet';
-// Grab flash messages BEFORE header.php's show_flash() consumes them.
-// We'll render them as persistent banners (not toasts) inside the page body.
-$page_banner_flashes = get_flashes();
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="content-header">
-    <h1>Add New Cadet</h1>
-    <p>Enroll a new ROTC cadet into your platoon for the active academic term.</p>
-</div>
+<!-- Page-specific stylesheet (adjust the path if your CSS folder differs) -->
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/add_cadet.css">
 
-<?php if (!empty($page_banner_flashes)): ?>
-<div class="flash-container">
-    <?php foreach ($page_banner_flashes as $flash):
-        $ft = htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8');
-        $fm = $flash['message']; // HTML allowed (e.g. <strong>)
-    ?>
-    <div class="flash-message flash-<?= $ft ?>" data-persist="true" role="alert"><?= $fm ?></div>
-    <?php endforeach; ?>
-</div>
-<?php endif; ?>
+<div class="ac-page">
 
-<!-- Active Term & Unit Assignment Banner -->
-<?php if (!$active_term): ?>
-    <div class="banner banner-error">
-        <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <div>
-            <strong>Notice:</strong> There is no active academic term configured in the system. An Administrator must create and activate a term before cadets can be enrolled.
+    <div class="content-header">
+        <h1>Add New Cadet</h1>
+        <p>Enroll a new ROTC cadet into your platoon for the active academic term.</p>
+    </div>
+
+    <!-- Status banners -->
+    <?php if (!$active_term): ?>
+        <div class="banner banner-error" role="alert">
+            <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>
+                <strong>No active term:</strong> An Administrator must create and activate an academic term before cadets can be enrolled.
+            </div>
+        </div>
+    <?php elseif (!$platoon_id || !$company_id): ?>
+        <div class="banner banner-warning" role="alert">
+            <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+                <strong>Unit assignment missing:</strong> Your account is not assigned to a company and platoon. Please contact an Administrator to update your assignment.
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- Unit & term summary -->
+    <div class="ac-summary" aria-label="Enrollment details">
+        <div class="ac-summary-item">
+            <span class="ac-summary-label">Company</span>
+            <span class="ac-summary-value <?= $company_id ? '' : 'is-missing' ?>"><?= e($company_name) ?></span>
+        </div>
+        <div class="ac-summary-item">
+            <span class="ac-summary-label">Platoon</span>
+            <span class="ac-summary-value <?= $platoon_id ? '' : 'is-missing' ?>"><?= e($platoon_name) ?></span>
+        </div>
+        <div class="ac-summary-item">
+            <span class="ac-summary-label">Enrollment Term</span>
+            <span class="ac-summary-value <?= $active_term ? '' : 'is-missing' ?>"><?= e($active_term['name'] ?? 'None active') ?></span>
         </div>
     </div>
-<?php elseif (!$platoon_id || !$company_id): ?>
-    <div class="banner banner-warning">
-        <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <div>
-            <strong>Unit Assignment Missing:</strong> Your account is not currently assigned to a company and platoon. Please contact an Administrator to update your assignment.
-        </div>
-    </div>
-<?php else: ?>
-    <div class="banner banner-info" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div>
-            <strong>Unit:</strong> Company <?= e($company_name) ?> &mdash; <?= e($platoon_name) ?>
-            <span style="margin: 0 8px; color: var(--gray-300);">|</span>
-            <strong>Active Term:</strong> <?= e($active_term['name']) ?>
-            <p style="font-size: 12px; margin-top: 4px; color: var(--gray-700);">Cadets will automatically be assigned to your platoon for this term.</p>
-        </div>
-    </div>
-<?php endif; ?>
 
-<div class="card" style="max-width: 820px;">
-    <h2 class="card-title">Cadet Registration Form</h2>
+    <!-- Server-side error summary -->
+    <?php if (!empty($errors)): ?>
+        <div class="ac-error-summary" id="error-summary" role="alert" tabindex="-1">
+            <strong>Please fix the following <?= count($errors) === 1 ? 'issue' : count($errors) . ' issues' ?> before enrolling:</strong>
+            <ul>
+                <?php foreach ($errors as $field => $message): ?>
+                    <li><a href="#<?= e($field === 'gender' ? 'gender_male' : $field) ?>"><?= e($field_labels[$field] ?? $field) ?></a>: <?= e($message) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
 
     <form method="POST" action="<?= BASE_URL ?>/leader/add_cadet.php" id="add-cadet-form" novalidate>
         <?= csrf_field() ?>
 
-        <!-- Unit Assignment Read-Only Display -->
-        <div class="form-row" style="background-color: var(--gray-50); border: 1px solid var(--gray-300); border-radius: var(--radius-default); padding: 12px 16px; margin-bottom: 20px;">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-size: 12px; color: var(--gray-700);">Assigned Company</label>
-                <div style="font-weight: 600; color: var(--green-900);"><?= e($company_name) ?></div>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-size: 12px; color: var(--gray-700);">Assigned Platoon</label>
-                <div style="font-weight: 600; color: var(--green-900);"><?= e($platoon_name) ?></div>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-size: 12px; color: var(--gray-700);">Enrollment Term</label>
-                <div style="font-weight: 600; color: var(--green-900);"><?= e($active_term['name'] ?? 'None') ?></div>
-            </div>
-        </div>
-
-        <!-- Name Fields (3 columns on desktop) -->
-        <div class="form-row">
-            <div class="form-group">
-                <label for="last_name">Last Name <span style="color: var(--error);">*</span></label>
-                <input type="text" id="last_name" name="last_name" class="form-control <?= isset($errors['last_name']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['last_name'] ?? '') ?>" required>
-                <?php if (isset($errors['last_name'])): ?><span class="field-error"><?= e($errors['last_name']) ?></span><?php endif; ?>
+        <div class="ac-card <?= $can_enroll ? '' : 'is-locked' ?>">
+            <div class="ac-card-head">
+                <h2>Cadet Registration Form</h2>
+                <p>Fields marked <span class="ac-required-note">*</span> are required. The cadet is automatically placed in your platoon.</p>
             </div>
 
-            <div class="form-group">
-                <label for="first_name">First Name <span style="color: var(--error);">*</span></label>
-                <input type="text" id="first_name" name="first_name" class="form-control <?= isset($errors['first_name']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['first_name'] ?? '') ?>" required>
-                <?php if (isset($errors['first_name'])): ?><span class="field-error"><?= e($errors['first_name']) ?></span><?php endif; ?>
-            </div>
+            <!-- 1. Personal information -->
+            <fieldset class="ac-section" <?= $can_enroll ? '' : 'disabled' ?>>
+                <legend><span class="ac-step">1</span> Personal Information</legend>
 
-            <div class="form-group">
-                <label for="middle_name">Middle Name</label>
-                <input type="text" id="middle_name" name="middle_name" class="form-control <?= isset($errors['middle_name']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['middle_name'] ?? '') ?>" placeholder="Optional">
-                <?php if (isset($errors['middle_name'])): ?><span class="field-error"><?= e($errors['middle_name']) ?></span><?php endif; ?>
-            </div>
-        </div>
+                <div class="ac-grid">
+                    <div class="ac-field ac-col-2">
+                        <label for="last_name">Last Name <span class="ac-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="last_name" name="last_name"
+                               class="form-control <?= isset($errors['last_name']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['last_name'] ?? '') ?>"
+                               autocomplete="family-name" maxlength="100" required
+                               <?= $invalid_attrs('last_name') ?>>
+                        <?= $field_error('last_name') ?>
+                    </div>
 
-        <!-- Demographics & Academic Program -->
-        <div class="form-row">
-            <div class="form-group">
-                <label for="birthday">Birthday <span style="color: var(--error);">*</span></label>
-                <input type="date" id="birthday" name="birthday" max="<?= date('Y-m-d') ?>" class="form-control <?= isset($errors['birthday']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['birthday'] ?? '') ?>" required>
-                <?php if (isset($errors['birthday'])): ?><span class="field-error"><?= e($errors['birthday']) ?></span><?php endif; ?>
-            </div>
+                    <div class="ac-field ac-col-2">
+                        <label for="first_name">First Name <span class="ac-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="first_name" name="first_name"
+                               class="form-control <?= isset($errors['first_name']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['first_name'] ?? '') ?>"
+                               autocomplete="given-name" maxlength="100" required
+                               <?= $invalid_attrs('first_name') ?>>
+                        <?= $field_error('first_name') ?>
+                    </div>
 
-            <div class="form-group">
-                <label for="gender">Gender <span style="color: var(--error);">*</span></label>
-                <select id="gender" name="gender" class="form-control <?= isset($errors['gender']) ? 'is-invalid' : '' ?>" required>
-                    <option value="">-- Select Gender --</option>
-                    <option value="Male" <?= (($_POST['gender'] ?? '') === 'Male') ? 'selected' : '' ?>>Male</option>
-                    <option value="Female" <?= (($_POST['gender'] ?? '') === 'Female') ? 'selected' : '' ?>>Female</option>
-                </select>
-                <?php if (isset($errors['gender'])): ?><span class="field-error"><?= e($errors['gender']) ?></span><?php endif; ?>
-            </div>
+                    <div class="ac-field ac-col-2">
+                        <label for="middle_name">Middle Name <span class="ac-optional">(optional)</span></label>
+                        <input type="text" id="middle_name" name="middle_name"
+                               class="form-control <?= isset($errors['middle_name']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['middle_name'] ?? '') ?>"
+                               autocomplete="additional-name" maxlength="100"
+                               <?= $invalid_attrs('middle_name') ?>>
+                        <?= $field_error('middle_name') ?>
+                    </div>
 
-            <div class="form-group">
-                <label for="program_id">Academic Program <span style="color: var(--error);">*</span></label>
-                <select id="program_id" name="program_id" class="form-control <?= isset($errors['program_id']) ? 'is-invalid' : '' ?>" required>
-                    <option value="">-- Select Program --</option>
-                    <?php foreach ($programs as $prog): ?>
-                        <option value="<?= (int)$prog['id'] ?>" <?= ((int)($_POST['program_id'] ?? 0) === (int)$prog['id']) ? 'selected' : '' ?>>
-                            <?= e($prog['code']) ?> &mdash; <?= e($prog['name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if (isset($errors['program_id'])): ?><span class="field-error"><?= e($errors['program_id']) ?></span><?php endif; ?>
-            </div>
-        </div>
+                    <div class="ac-field ac-col-3">
+                        <label for="birthday">Birthday <span class="ac-req" aria-hidden="true">*</span></label>
+                        <input type="date" id="birthday" name="birthday"
+                               max="<?= date('Y-m-d') ?>"
+                               class="form-control <?= isset($errors['birthday']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['birthday'] ?? '') ?>"
+                               autocomplete="bday" required
+                               <?= $invalid_attrs('birthday') ?>>
+                        <?= $field_error('birthday') ?>
+                    </div>
 
-        <!-- Student ID, Email & Contact -->
-        <div class="form-row">
-            <div class="form-group">
-                <label for="student_number">Student Number <span style="color: var(--error);">*</span></label>
-                <input type="text" id="student_number" name="student_number" class="form-control <?= isset($errors['student_number']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['student_number'] ?? '') ?>" placeholder="e.g. 2024-00123" required>
-                <span class="field-hint">Must be unique across all cadets.</span>
-                <?php if (isset($errors['student_number'])): ?><span class="field-error"><?= e($errors['student_number']) ?></span><?php endif; ?>
-            </div>
+                    <div class="ac-field ac-col-3">
+                        <label id="gender-label">Gender <span class="ac-req" aria-hidden="true">*</span></label>
+                        <div class="ac-segmented <?= isset($errors['gender']) ? 'is-invalid' : '' ?>" role="radiogroup" aria-labelledby="gender-label" id="gender-group">
+                            <input type="radio" id="gender_male" name="gender" value="Male"
+                                   <?= (($_POST['gender'] ?? '') === 'Male') ? 'checked' : '' ?> required>
+                            <label for="gender_male">Male</label>
 
-            <div class="form-group">
-                <label for="email">Email Address <span style="color: var(--error);">*</span></label>
-                <input type="email" id="email" name="email" class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['email'] ?? '') ?>" placeholder="cadet@university.edu" required>
-                <span class="field-hint">Must be unique across all cadets.</span>
-                <?php if (isset($errors['email'])): ?><span class="field-error"><?= e($errors['email']) ?></span><?php endif; ?>
-            </div>
+                            <input type="radio" id="gender_female" name="gender" value="Female"
+                                   <?= (($_POST['gender'] ?? '') === 'Female') ? 'checked' : '' ?>>
+                            <label for="gender_female">Female</label>
+                        </div>
+                        <?= $field_error('gender') ?>
+                    </div>
+                </div>
+            </fieldset>
 
-            <div class="form-group">
-                <label for="contact_number">Contact Number</label>
-                <input type="tel" id="contact_number" name="contact_number" class="form-control <?= isset($errors['contact_number']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['contact_number'] ?? '') ?>" placeholder="e.g. 09123456789">
-                <?php if (isset($errors['contact_number'])): ?><span class="field-error"><?= e($errors['contact_number']) ?></span><?php endif; ?>
-            </div>
-        </div>
+            <!-- 2. Academic information -->
+            <fieldset class="ac-section" <?= $can_enroll ? '' : 'disabled' ?>>
+                <legend><span class="ac-step">2</span> Academic Information</legend>
 
-        <div style="margin-top: 24px; display: flex; gap: 12px; align-items: center;">
-            <button type="submit" class="btn btn-primary" id="enroll-cadet-btn">
-                Enroll Cadet
-            </button>
-            <a href="<?= BASE_URL ?>/leader/dashboard.php" class="btn btn-secondary">Cancel</a>
+                <div class="ac-grid">
+                    <div class="ac-field ac-col-3">
+                        <label for="student_number">Student Number <span class="ac-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="student_number" name="student_number"
+                               class="form-control <?= isset($errors['student_number']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['student_number'] ?? '') ?>"
+                               placeholder="e.g. 2024-00123" maxlength="50"
+                               autocomplete="off" required
+                               aria-describedby="student_number-hint<?= isset($errors['student_number']) ? ' student_number-error' : '' ?>"
+                               <?= isset($errors['student_number']) ? 'aria-invalid="true"' : '' ?>>
+                        <span class="ac-hint" id="student_number-hint">Must be unique across all cadets.</span>
+                        <?= $field_error('student_number') ?>
+                    </div>
+
+                    <div class="ac-field ac-col-3">
+                        <label for="program_id">Academic Program <span class="ac-req" aria-hidden="true">*</span></label>
+                        <select id="program_id" name="program_id"
+                                class="form-control <?= isset($errors['program_id']) ? 'is-invalid' : '' ?>" required
+                                <?= $invalid_attrs('program_id') ?>>
+                            <option value="">Select a program&hellip;</option>
+                            <?php foreach ($programs as $prog): ?>
+                                <option value="<?= (int)$prog['id'] ?>" <?= ((int)($_POST['program_id'] ?? 0) === (int)$prog['id']) ? 'selected' : '' ?>>
+                                    <?= e($prog['code']) ?> &mdash; <?= e($prog['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?= $field_error('program_id') ?>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- 3. Contact information -->
+            <fieldset class="ac-section" <?= $can_enroll ? '' : 'disabled' ?>>
+                <legend><span class="ac-step">3</span> Contact Information</legend>
+
+                <div class="ac-grid">
+                    <div class="ac-field ac-col-3">
+                        <label for="email">Email Address <span class="ac-req" aria-hidden="true">*</span></label>
+                        <input type="email" id="email" name="email"
+                               class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['email'] ?? '') ?>"
+                               placeholder="cadet@university.edu" maxlength="150"
+                               autocomplete="email" inputmode="email" required
+                               aria-describedby="email-hint<?= isset($errors['email']) ? ' email-error' : '' ?>"
+                               <?= isset($errors['email']) ? 'aria-invalid="true"' : '' ?>>
+                        <span class="ac-hint" id="email-hint">Must be unique across all cadets.</span>
+                        <?= $field_error('email') ?>
+                    </div>
+
+                    <div class="ac-field ac-col-3">
+                        <label for="contact_number">Contact Number <span class="ac-optional">(optional)</span></label>
+                        <input type="tel" id="contact_number" name="contact_number"
+                               class="form-control <?= isset($errors['contact_number']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($_POST['contact_number'] ?? '') ?>"
+                               placeholder="e.g. 09123456789" maxlength="50"
+                               autocomplete="tel" inputmode="tel"
+                               <?= $invalid_attrs('contact_number') ?>>
+                        <?= $field_error('contact_number') ?>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Actions -->
+            <div class="ac-actions">
+                <a href="<?= BASE_URL ?>/leader/dashboard.php" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" id="enroll-cadet-btn" <?= $can_enroll ? '' : 'disabled' ?>>
+                    <span class="ac-spinner" aria-hidden="true"></span>
+                    <span class="ac-btn-label">Enroll Cadet</span>
+                </button>
+            </div>
         </div>
     </form>
 </div>
 
-<!-- Inline Client Validation Script (Step C: Progressive Enhancement) -->
+<!-- Client-side validation (progressive enhancement; server validation remains authoritative) -->
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('add-cadet-form');
     if (!form) return;
 
-    form.addEventListener('submit', (e) => {
-        let hasClientError = false;
-        
-        // Helper to set field error
-        function setErr(fieldId, msg) {
-            const field = document.getElementById(fieldId);
-            if (!field) return;
-            field.classList.add('is-invalid');
-            let err = field.parentElement.querySelector('.field-error');
-            if (!err) {
-                err = document.createElement('span');
-                err.className = 'field-error';
-                field.parentElement.appendChild(err);
-            }
-            err.textContent = msg;
-            hasClientError = true;
+    const submitBtn = document.getElementById('enroll-cadet-btn');
+    const summary = document.getElementById('error-summary');
+    if (summary) summary.focus();
+
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Rules return an error message, or '' when the field is valid
+    const rules = {
+        last_name:      v => v ? '' : 'Last name is required.',
+        first_name:     v => v ? '' : 'First name is required.',
+        birthday:       v => {
+            if (!v) return 'Birthday is required.';
+            return v > new Date().toISOString().split('T')[0] ? 'Birthday cannot be a future date.' : '';
+        },
+        program_id:     v => v ? '' : 'Please select an academic program.',
+        student_number: v => v ? '' : 'Student number is required.',
+        email:          v => !v ? 'Email address is required.' : (emailRe.test(v) ? '' : 'Please provide a valid email address.')
+    };
+
+    const getValue = id => {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    };
+
+    function clearErr(id) {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+        const err = field.parentElement.querySelector('.field-error');
+        if (err) err.remove();
+    }
+
+    function setErr(id, msg) {
+        const field = document.getElementById(id);
+        if (!field) return;
+        clearErr(id);
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+        const err = document.createElement('span');
+        err.className = 'field-error';
+        err.id = id + '-error';
+        err.setAttribute('role', 'alert');
+        err.textContent = msg;
+        field.parentElement.appendChild(err);
+    }
+
+    function validateField(id) {
+        const msg = rules[id](getValue(id));
+        if (msg) { setErr(id, msg); return false; }
+        clearErr(id);
+        return true;
+    }
+
+    // Gender radio group
+    const genderGroup = document.getElementById('gender-group');
+    function validateGender() {
+        const checked = form.querySelector('input[name="gender"]:checked');
+        const wrap = genderGroup.parentElement;
+        const old = wrap.querySelector('.field-error');
+        if (old) old.remove();
+        genderGroup.classList.remove('is-invalid');
+        if (!checked) {
+            genderGroup.classList.add('is-invalid');
+            const err = document.createElement('span');
+            err.className = 'field-error';
+            err.setAttribute('role', 'alert');
+            err.textContent = 'Please select a gender.';
+            wrap.appendChild(err);
+            return false;
         }
+        return true;
+    }
 
-        // Helper to clear field error
-        function clearErr(fieldId) {
-            const field = document.getElementById(fieldId);
-            if (!field) return;
-            field.classList.remove('is-invalid');
-            const err = field.parentElement.querySelector('.field-error');
-            if (err) err.remove();
-        }
+    // Validate on blur; clear the error as soon as the user fixes it
+    Object.keys(rules).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('blur', () => { if (el.value !== '' || el.classList.contains('is-invalid')) validateField(id); });
+        el.addEventListener('input', () => { if (el.classList.contains('is-invalid')) validateField(id); });
+        el.addEventListener('change', () => { if (el.classList.contains('is-invalid')) validateField(id); });
+    });
+    form.querySelectorAll('input[name="gender"]').forEach(r => r.addEventListener('change', validateGender));
 
-        ['last_name', 'first_name', 'birthday', 'gender', 'program_id', 'student_number', 'email'].forEach(clearErr);
+    form.addEventListener('submit', e => {
+        let firstInvalidId = null;
 
-        const lastName = document.getElementById('last_name').value.trim();
-        const firstName = document.getElementById('first_name').value.trim();
-        const birthday = document.getElementById('birthday').value.trim();
-        const gender = document.getElementById('gender').value;
-        const programId = document.getElementById('program_id').value;
-        const studentNumber = document.getElementById('student_number').value.trim();
-        const email = document.getElementById('email').value.trim();
+        Object.keys(rules).forEach(id => {
+            if (!validateField(id) && !firstInvalidId) firstInvalidId = id;
+        });
+        if (!validateGender() && !firstInvalidId) firstInvalidId = 'gender_male';
+        // Keep visual order: gender sits between birthday and program, so re-pick the first visible invalid control
+        const firstInvalid = form.querySelector('.is-invalid');
 
-        if (!lastName) setErr('last_name', 'Last name is required.');
-        if (!firstName) setErr('first_name', 'First name is required.');
-        if (!birthday) {
-            setErr('birthday', 'Birthday is required.');
-        } else {
-            const today = new Date().toISOString().split('T')[0];
-            if (birthday > today) setErr('birthday', 'Birthday cannot be a future date.');
-        }
-        if (!gender) setErr('gender', 'Please select a gender.');
-        if (!programId) setErr('program_id', 'Please select an academic program.');
-        if (!studentNumber) setErr('student_number', 'Student number is required.');
-        if (!email) {
-            setErr('email', 'Email address is required.');
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setErr('email', 'Please provide a valid email address.');
-        }
-
-        if (hasClientError) {
+        if (firstInvalidId) {
             e.preventDefault();
             if (typeof showToast === 'function') {
-                showToast('Please check the highlighted fields above.', 'error');
+                showToast('Please check the highlighted fields.', 'error');
             }
-            const firstInvalid = form.querySelector('.is-invalid');
-            if (firstInvalid) firstInvalid.focus();
+            const target = firstInvalid && firstInvalid.matches('input, select')
+                ? firstInvalid
+                : document.getElementById(firstInvalidId);
+            if (target) target.focus();
+            return;
         }
+
+        // Prevent double submissions
+        submitBtn.disabled = true;
+        submitBtn.classList.add('is-loading');
+        submitBtn.querySelector('.ac-btn-label').textContent = 'Enrolling…';
     });
 });
 </script>
