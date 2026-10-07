@@ -54,3 +54,29 @@ function log_audit(PDO $pdo, ?int $actorId, string $action, string $entity, ?int
     }
 }
 
+function next_cadet_code(PDO $pdo): string {
+    $year = date('Y');
+    $prefix = "CDT-{$year}-";
+
+    // Lock and get the latest cadet code for this year to prevent duplicates
+    $stmt = $pdo->prepare("
+        SELECT cadet_code FROM cadets 
+        WHERE cadet_code LIKE :prefix 
+        ORDER BY id DESC 
+        LIMIT 1 
+        FOR UPDATE
+    ");
+    $stmt->execute(['prefix' => $prefix . '%']);
+    $lastCode = $stmt->fetchColumn();
+
+    $nextSeq = 1;
+    if ($lastCode) {
+        $parts = explode('-', $lastCode);
+        $num = (int)end($parts);
+        $nextSeq = $num + 1;
+    }
+
+    return sprintf('CDT-%s-%04d', $year, $nextSeq);
+}
+
+
