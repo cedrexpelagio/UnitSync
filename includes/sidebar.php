@@ -35,7 +35,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'dashboard.php' ? 'active' : '' ?>">
                     <a href="<?= BASE_URL ?>/leader/dashboard.php">Dashboard</a>
                 </li>
-                <li><span>Add Cadet <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= $current_script === 'add_cadet.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/leader/add_cadet.php">Add Cadet</a>
+                </li>
                 <li><span>View Cadets <span class="badge badge-coming-soon">Soon</span></span></li>
                 <li><span>Take Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
 

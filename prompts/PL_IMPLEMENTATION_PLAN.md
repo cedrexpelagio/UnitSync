@@ -118,26 +118,26 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 ## Stage PL-3: Add Cadet
 
 ### Step A: HTML and PHP (`leader/add_cadet.php`)
-- [ ] Guard, and load the leader's company, platoon, and the active term. If there is no active term, show a message and disable the form.
-- [ ] Fields: last name, first name, middle name, birthday, program (dropdown), gender (dropdown), student number, email, contact number.
-- [ ] Company and platoon are shown read-only from the leader's assignment and are **not** accepted from the form.
-- [ ] Server validation with a message next to each field: required fields, valid email, valid date (not in the future), contact number format, unique student number and email (in `cadets`, with a clear message naming which one is duplicated).
-- [ ] On success: insert the cadet (status `active`), generate the cadet code, create the `enrollments` row for the active term with the leader's company and platoon, write `audit_log`, flash the new cadet code, redirect.
-- [ ] Keep entered values after an error.
-- [ ] Sidebar: change "Add Cadet" from "Coming soon" to a link.
+- [x] Guard, and load the leader's company, platoon, and the active term. If there is no active term, show a message and disable the form.
+- [x] Fields: last name, first name, middle name, birthday, program (dropdown), gender (dropdown), student number, email, contact number.
+- [x] Company and platoon are shown read-only from the leader's assignment and are **not** accepted from the form.
+- [x] Server validation with a message next to each field: required fields, valid email, valid date (not in the future), contact number format, unique student number and email (in `cadets`, with a clear message naming which one is duplicated).
+- [x] On success: insert the cadet (status `active`), generate the cadet code, create the `enrollments` row for the active term with the leader's company and platoon, write `audit_log`, flash the new cadet code, redirect.
+- [x] Keep entered values after an error.
+- [x] Sidebar: change "Add Cadet" from "Coming soon" to a link.
 
 **Test checklist**
-- [ ] Add a cadet and see a code like `CDT-2026-0001`.
-- [ ] A second cadet gets the next number.
-- [ ] A duplicate student number and a duplicate email are each rejected next to the field.
-- [ ] Posting a different `platoon_id` in the form has no effect.
-- [ ] Another role opening the page is redirected.
+- [x] Add a cadet and see a code like `CDT-2026-0001`.
+- [x] A second cadet gets the next number.
+- [x] A duplicate student number and a duplicate email are each rejected next to the field.
+- [x] Posting a different `platoon_id` in the form has no effect.
+- [x] Another role opening the page is redirected.
 
 ### Step B: CSS
-- [ ] Two-column form on desktop, one column on phone. Read-only assignment fields styled as info.
+- [x] Two-column form on desktop, one column on phone. Read-only assignment fields styled as info.
 
 ### Step C: JS
-- [ ] Inline field checks as a convenience only. Toast on success. Server stays the source of truth.
+- [x] Inline field checks as a convenience only. Toast on success. Server stays the source of truth.
 
 ---
 
