@@ -229,14 +229,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Convert session flash banners to toasts (Progressive Enhancement)
+    //    Skip elements with data-persist="true" — those stay as static banners.
     const flashMessages = document.querySelectorAll('.flash-message');
     flashMessages.forEach((msgEl) => {
+        if (msgEl.dataset.persist === 'true') return; // keep as static banner
+
         let type = 'info';
         if (msgEl.classList.contains('flash-success')) type = 'success';
         else if (msgEl.classList.contains('flash-error')) type = 'error';
         else if (msgEl.classList.contains('flash-warning')) type = 'warning';
 
         showToast(msgEl.textContent, type);
+        msgEl.remove(); // clean up the now-toasted element
     });
 
     // 4. Password visibility toggle (Eye icon)
