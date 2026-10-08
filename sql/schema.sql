@@ -4,6 +4,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `officers`;
 DROP TABLE IF EXISTS `attendance_records`;
 DROP TABLE IF EXISTS `attendance_submissions`;
 DROP TABLE IF EXISTS `enrollments`;
@@ -216,6 +217,27 @@ CREATE TABLE `attendance_records` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- Officers (Company Commanders and Platoon Leaders imported by S1, migration 007)
+CREATE TABLE `officers` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `last_name` VARCHAR(100) NOT NULL,
+    `first_name` VARCHAR(100) NOT NULL,
+    `middle_name` VARCHAR(100) DEFAULT NULL,
+    `role` ENUM('company_commander', 'platoon_leader') NOT NULL,
+    `company_id` INT NOT NULL,
+    `platoon_id` INT DEFAULT NULL,
+    `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    `created_by` INT DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_officers_name` (`last_name`, `first_name`),
+    INDEX `idx_officers_slot` (`role`, `company_id`, `platoon_id`, `status`),
+    CONSTRAINT `fk_officers_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_officers_platoon` FOREIGN KEY (`platoon_id`) REFERENCES `platoons` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_officers_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- Settings Table (System Configuration)
 CREATE TABLE IF NOT EXISTS `settings` (
     `key_name` VARCHAR(50) NOT NULL PRIMARY KEY,
@@ -226,4 +248,4 @@ CREATE TABLE IF NOT EXISTS `settings` (
 
 INSERT INTO `settings` (`key_name`, `value`, `description`)
 VALUES ('attendance_at_risk_threshold', '80', 'Minimum attendance percentage threshold (cadets below this are flagged as at-risk)')
-ON DUPLICATE KEY UPDATE `key_name` = `key_name`;
+ON DUPLICATE KEY UPDATE `key_name` = `key_name`;

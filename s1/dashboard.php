@@ -212,6 +212,15 @@ require_once __DIR__ . '/../includes/header.php';
     <a href="<?= BASE_URL ?>/s1/import_cadets.php?template=1" class="btn btn-secondary">Download Template</a>
 </div>
 
+<div class="summary-card" style="max-width: 650px; margin-bottom: 24px;">
+    <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 8px;">Officers</h3>
+    <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">
+        Upload a CSV of Company Commanders and Platoon Leaders. Each company gets one commander and each platoon one leader. You can preview and fix errors before anything is saved.
+    </p>
+    <a href="<?= BASE_URL ?>/s1/import_officers.php" class="btn btn-primary">Import Officers (CSV)</a>
+    <a href="<?= BASE_URL ?>/s1/import_officers.php?template=1" class="btn btn-secondary">Download Template</a>
+</div>
+
 <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; max-width: 650px;">
     <h4 style="color: var(--warning); margin-bottom: 8px;">MVP Status: Dashboard Active</h4>
     <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">

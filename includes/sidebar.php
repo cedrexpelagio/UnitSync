@@ -57,6 +57,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'import_cadets.php' ? 'active' : '' ?>">
                 <a href="<?= BASE_URL ?>/s1/import_cadets.php">Import Cadets</a>
                 </li>
+                <li class="<?= $current_script === 'import_officers.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/s1/import_officers.php">Import Officers</a>
+                </li>
                 <li class="<?= in_array($current_script, ['roster.php', 'edit_cadet.php'], true) ? 'active' : '' ?>">
                 <a href="<?= BASE_URL ?>/s1/roster.php">Cadet Roster</a>
                 </li>
