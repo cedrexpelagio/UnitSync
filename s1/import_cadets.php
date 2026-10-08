@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Re-check duplicates against the database right before saving
             $existing = [];
-            foreach ($pdo->query("SELECT full_name, program FROM cadets") as $r) {
+            foreach ($pdo->query("SELECT full_name, program FROM cadets WHERE status = 'active'") as $r) {
                 $existing[dup_key($r['full_name'], $r['program'])] = true;
             }
 
@@ -218,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Existing cadets, for duplicate detection
         $existing = [];
-        foreach ($pdo->query("SELECT full_name, program FROM cadets") as $r) {
+        foreach ($pdo->query("SELECT full_name, program FROM cadets WHERE status = 'active'") as $r) {
             $existing[dup_key($r['full_name'], $r['program'])] = true;
         }
 
@@ -305,7 +305,7 @@ $counts = ['ok' => 0, 'error' => 0, 'duplicate' => 0];
 if ($import) {
     foreach ($import['rows'] as $r) $counts[$r['status']]++;
 }
-$total_cadets = (int)$pdo->query("SELECT COUNT(*) FROM cadets WHERE status IN ('active', 'unassigned')")->fetchColumn();
+$total_cadets = (int)$pdo->query("SELECT COUNT(*) FROM cadets WHERE status = 'active'")->fetchColumn();
 
 $page_title = 'Import Cadets';
 require_once __DIR__ . '/../includes/header.php';
