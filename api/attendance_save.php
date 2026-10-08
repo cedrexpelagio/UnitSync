@@ -130,8 +130,8 @@ foreach ($records as $item) {
     if ($status === 'L') {
         $raw_min = trim((string)($item['minutes_late'] ?? ''));
         if ($raw_min !== '') {
-            if (!ctype_digit($raw_min) || (int)$raw_min < 0) {
-                $row_errors[$cid] = 'Minutes late must be a non-negative whole number.';
+            if (!ctype_digit($raw_min) || (int)$raw_min < 0 || (int)$raw_min > 480) {
+                $row_errors[$cid] = 'Minutes late must be a whole number between 0 and 480.';
             } else {
                 $minutes_late = (int)$raw_min;
             }
@@ -261,7 +261,6 @@ try {
             ");
             $stmt_sub->execute([(int)$submission['id']]);
         }
-    }
 
     $pdo->commit();
 
