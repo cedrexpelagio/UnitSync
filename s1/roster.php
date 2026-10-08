@@ -92,7 +92,7 @@ $cadets = $stmt->fetchAll();
 $programs  = $pdo->query("SELECT code, name FROM programs ORDER BY code")->fetchAll();
 $companies = $pdo->query("SELECT id, name FROM companies ORDER BY name")->fetchAll();
 $platoons  = $pdo->query("
-    SELECT p.id, p.name, co.name AS company_name
+    SELECT p.id, p.name, p.company_id, co.name AS company_name
     FROM platoons p JOIN companies co ON p.company_id = co.id
     ORDER BY co.name, p.name
 ")->fetchAll();
@@ -110,12 +110,40 @@ function roster_url(array $filters, int $page): string {
     return BASE_URL . '/s1/roster.php' . ($qs !== '' ? '?' . $qs : '');
 }
 
+// URL of the roster with ONE filter removed (page resets to 1)
+function roster_without(array $filters, string $key): string {
+    unset($filters[$key]);
+    $qs = http_build_query($filters);
+    return BASE_URL . '/s1/roster.php' . ($qs !== '' ? '?' . $qs : '');
+}
+
+// ---------- Active filter chips ----------
+$company_names = array_column($companies, 'name', 'id');
+$platoon_names = [];
+foreach ($platoons as $pl) {
+    $platoon_names[$pl['id']] = $pl['company_name'] . ' - ' . $pl['name'];
+}
+
+$chips = [];
+if ($q !== '')       $chips['q']       = 'Name: ' . $q;
+if ($gender !== '')  $chips['gender']  = 'Gender: ' . $gender;
+if ($program !== '') $chips['program'] = 'Program: ' . $program;
+if ($company > 0)    $chips['company'] = 'Company: ' . ($company_names[$company] ?? $company);
+if ($platoon > 0)    $chips['platoon'] = 'Platoon: ' . ($platoon_names[$platoon] ?? $platoon);
+if ($status !== '')  $chips['status']  = 'Status: ' . $status_labels[$status];
+
+// The Filters button counts everything except the search box (that is always visible)
+$filter_count = count($chips) - (isset($chips['q']) ? 1 : 0);
+
 $from = $total === 0 ? 0 : $offset + 1;
 $to = min($offset + ROSTER_PAGE_SIZE, $total);
 
 $page_title = 'Cadet Roster';
 require_once __DIR__ . '/../includes/header.php';
 ?>
+
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/roster.css">
+<script>document.documentElement.classList.add('no-js');</script>
 
 <div class="content-header">
     <h1>Cadet Roster</h1>
@@ -126,71 +154,125 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="alert alert-warning" style="margin-bottom: 16px;">No active term is set, so every cadet shows as Unassigned. An Administrator must activate a term.</div>
 <?php endif; ?>
 
-<div class="summary-card" style="margin-bottom: 16px;">
-    <form method="GET" action="<?= BASE_URL ?>/s1/roster.php">
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-            <div class="form-group" style="margin: 0; min-width: 200px;">
-                <label for="q">Search name</label>
-                <input type="text" id="q" name="q" class="form-control" value="<?= e($q) ?>" placeholder="e.g. Dela Cruz">
-            </div>
-            <div class="form-group" style="margin: 0;">
-                <label for="gender">Gender</label>
-                <select id="gender" name="gender" class="form-control">
-                    <option value="">All</option>
-                    <option value="Male" <?= $gender === 'Male' ? 'selected' : '' ?>>Male</option>
-                    <option value="Female" <?= $gender === 'Female' ? 'selected' : '' ?>>Female</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin: 0;">
-                <label for="program">Program</label>
-                <select id="program" name="program" class="form-control">
-                    <option value="">All</option>
-                    <?php foreach ($programs as $p): ?>
-                        <option value="<?= e($p['code']) ?>" <?= $program === $p['code'] ? 'selected' : '' ?>><?= e($p['code']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group" style="margin: 0;">
-                <label for="company">Company</label>
-                <select id="company" name="company" class="form-control">
-                    <option value="">All</option>
-                    <?php foreach ($companies as $c): ?>
-                        <option value="<?= (int)$c['id'] ?>" <?= $company === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group" style="margin: 0;">
-                <label for="platoon">Platoon</label>
-                <select id="platoon" name="platoon" class="form-control">
-                    <option value="">All</option>
-                    <?php foreach ($platoons as $pl): ?>
-                        <option value="<?= (int)$pl['id'] ?>" <?= $platoon === (int)$pl['id'] ? 'selected' : '' ?>><?= e($pl['company_name'] . ' - ' . $pl['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group" style="margin: 0;">
-                <label for="status">Status</label>
-                <select id="status" name="status" class="form-control">
-                    <option value="">All</option>
-                    <?php foreach ($status_labels as $key => $label): ?>
-                        <option value="<?= e($key) ?>" <?= $status === $key ? 'selected' : '' ?>><?= e($label) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <button type="submit" class="btn btn-primary">Filter</button>
-                <a href="<?= BASE_URL ?>/s1/roster.php" class="btn btn-secondary">Reset</a>
+<form method="GET" action="<?= BASE_URL ?>/s1/roster.php" id="rosterFilters" role="search" aria-label="Filter cadets">
+
+    <div class="rf-toolbar">
+        <!-- Search (always visible; press Enter to search) -->
+        <div class="rf-search">
+            <svg class="rf-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="q" name="q" class="form-control" value="<?= e($q) ?>"
+                   placeholder="Search name, e.g. Dela Cruz" autocomplete="off" aria-label="Search name">
+            <button type="button" class="rf-search-clear" id="qClear" aria-label="Clear search">&times;</button>
+        </div>
+
+        <!-- The single Filters button + its panel -->
+        <div class="rf-wrap">
+            <button type="button" id="rfToggle" class="btn btn-secondary rf-toggle <?= $filter_count > 0 ? 'has-filters' : '' ?>"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="rfPanel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5z"/></svg>
+                Filters
+                <span class="rf-count" id="rfCount" <?= $filter_count === 0 ? 'hidden' : '' ?>><?= (int)$filter_count ?></span>
+            </button>
+
+            <div class="rf-backdrop" id="rfBackdrop"></div>
+
+            <div class="rf-panel" id="rfPanel" role="dialog" aria-label="Filter cadets">
+                <div class="rf-panel-head">
+                    <span class="rf-panel-title">Filters</span>
+                    <button type="button" class="rf-panel-close" id="rfClose" aria-label="Close filters">&times;</button>
+                </div>
+
+                <div class="rf-panel-body">
+                    <div class="rf-grid">
+                        <div class="rf-field">
+                            <label for="gender">Gender</label>
+                            <select id="gender" name="gender" class="form-control <?= $gender !== '' ? 'is-set' : '' ?>">
+                                <option value="">All genders</option>
+                                <option value="Male" <?= $gender === 'Male' ? 'selected' : '' ?>>Male</option>
+                                <option value="Female" <?= $gender === 'Female' ? 'selected' : '' ?>>Female</option>
+                            </select>
+                        </div>
+
+                        <div class="rf-field">
+                            <label for="program">Program</label>
+                            <select id="program" name="program" class="form-control <?= $program !== '' ? 'is-set' : '' ?>">
+                                <option value="">All programs</option>
+                                <?php foreach ($programs as $p): ?>
+                                    <option value="<?= e($p['code']) ?>" <?= $program === $p['code'] ? 'selected' : '' ?>><?= e($p['code']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="rf-field">
+                            <label for="company">Company</label>
+                            <select id="company" name="company" class="form-control <?= $company > 0 ? 'is-set' : '' ?>">
+                                <option value="">All companies</option>
+                                <?php foreach ($companies as $c): ?>
+                                    <option value="<?= (int)$c['id'] ?>" <?= $company === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="rf-field">
+                            <label for="platoon">Platoon</label>
+                            <select id="platoon" name="platoon" class="form-control <?= $platoon > 0 ? 'is-set' : '' ?>">
+                                <option value="">All platoons</option>
+                                <?php foreach ($platoons as $pl): ?>
+                                    <option value="<?= (int)$pl['id'] ?>" data-company="<?= (int)$pl['company_id'] ?>" <?= $platoon === (int)$pl['id'] ? 'selected' : '' ?>><?= e($pl['company_name'] . ' - ' . $pl['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="rf-hint" id="platoonHint" hidden>Showing platoons of the selected company.</span>
+                        </div>
+
+                        <div class="rf-field rf-field-full" role="radiogroup" aria-label="Status">
+                            <span class="rf-group-label">Status</span>
+                            <div class="rf-pills">
+                                <label class="rf-pill">
+                                    <input type="radio" name="status" value="" <?= $status === '' ? 'checked' : '' ?>>
+                                    <span>All</span>
+                                </label>
+                                <?php foreach ($status_labels as $key => $label): ?>
+                                    <label class="rf-pill">
+                                        <input type="radio" name="status" value="<?= e($key) ?>" <?= $status === $key ? 'checked' : '' ?>>
+                                        <span><?= e($label) ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rf-panel-foot">
+                    <button type="button" class="rf-linkbtn" id="rfClear">Clear filters</button>
+                    <div class="rf-foot-right">
+                        <button type="submit" class="btn btn-primary">Apply filters</button>
+                    </div>
+                </div>
             </div>
         </div>
-    </form>
+    </div>
+</form>
+
+<?php if ($chips): ?>
+    <div class="rf-chips" aria-label="Active filters">
+        <span class="rf-chips-label">Active filters:</span>
+        <?php foreach ($chips as $key => $text): ?>
+            <span class="rf-chip">
+                <?= e($text) ?>
+                <a class="rf-chip-x" href="<?= e(roster_without($filters, $key)) ?>"
+                   aria-label="Remove filter <?= e($text) ?>" title="Remove">&times;</a>
+            </span>
+        <?php endforeach; ?>
+        <a class="rf-clear-all" href="<?= BASE_URL ?>/s1/roster.php">Clear all</a>
+    </div>
+<?php endif; ?>
+
+<div class="rt-bar">
+    <span>Showing <strong><?= $from ?>-<?= $to ?></strong> of <strong><?= $total ?></strong> cadet(s)</span>
+    <span class="rt-bar-links"><a href="<?= BASE_URL ?>/s1/import_cadets.php">Import cadets (CSV)</a></span>
 </div>
 
-<p style="margin-bottom: 8px; font-size: 14px;">
-    Showing <strong><?= $from ?>-<?= $to ?></strong> of <strong><?= $total ?></strong> cadet(s)
-    &nbsp;|&nbsp; <a href="<?= BASE_URL ?>/s1/import_cadets.php">Import cadets (CSV)</a>
-</p>
-
-<div class="table-responsive">
+<div class="table-responsive rt-wrap">
     <table class="data-table">
         <thead>
             <tr>
@@ -206,7 +288,12 @@ require_once __DIR__ . '/../includes/header.php';
         </thead>
         <tbody>
             <?php if (!$cadets): ?>
-                <tr><td colspan="8">No cadets match your filters.</td></tr>
+                <tr>
+                    <td colspan="8" class="rt-empty">
+                        <strong>No cadets found</strong>
+                        Try removing a filter or <a href="<?= BASE_URL ?>/s1/roster.php">reset all filters</a>.
+                    </td>
+                </tr>
             <?php endif; ?>
             <?php foreach ($cadets as $c): ?>
                 <?php
@@ -215,12 +302,12 @@ require_once __DIR__ . '/../includes/header.php';
                     elseif ($c['status'] === 'unassigned') $badge = 'badge-pending';
                 ?>
                 <tr>
-                    <td><?= e($c['full_name']) ?></td>
+                    <td class="rt-name"><?= e($c['full_name']) ?></td>
                     <td><?= e($c['gender']) ?></td>
                     <td><?= e($c['designation']) ?></td>
                     <td><?= e($c['program']) ?></td>
-                    <td><?= $c['company_name'] !== null ? e($c['company_name']) : '&mdash;' ?></td>
-                    <td><?= $c['platoon_name'] !== null ? e($c['platoon_name']) : '&mdash;' ?></td>
+                    <td><?= $c['company_name'] !== null ? e($c['company_name']) : '<span class="rt-muted">&mdash;</span>' ?></td>
+                    <td><?= $c['platoon_name'] !== null ? e($c['platoon_name']) : '<span class="rt-muted">&mdash;</span>' ?></td>
                     <td><span class="badge <?= $badge ?>"><?= e($status_labels[$c['status']] ?? $c['status']) ?></span></td>
                     <td><a href="<?= BASE_URL ?>/s1/edit_cadet.php?id=<?= (int)$c['id'] ?>" class="btn btn-sm btn-secondary">Edit</a></td>
                 </tr>
@@ -230,15 +317,23 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php if ($pages > 1): ?>
-    <p style="margin-top: 16px; font-size: 14px;">
+    <div class="rt-pager">
         <?php if ($page > 1): ?>
             <a href="<?= e(roster_url($filters, $page - 1)) ?>" class="btn btn-sm btn-secondary">&laquo; Previous</a>
+        <?php else: ?>
+            <span class="btn btn-sm btn-secondary" aria-disabled="true">&laquo; Previous</span>
         <?php endif; ?>
-        &nbsp; Page <strong><?= $page ?></strong> of <strong><?= $pages ?></strong> &nbsp;
+
+        <span>Page <strong><?= $page ?></strong> of <strong><?= $pages ?></strong></span>
+
         <?php if ($page < $pages): ?>
             <a href="<?= e(roster_url($filters, $page + 1)) ?>" class="btn btn-sm btn-secondary">Next &raquo;</a>
+        <?php else: ?>
+            <span class="btn btn-sm btn-secondary" aria-disabled="true">Next &raquo;</span>
         <?php endif; ?>
-    </p>
+    </div>
 <?php endif; ?>
+
+<script src="<?= BASE_URL ?>/assets/js/roster.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
