@@ -267,3 +267,12 @@ function initPasswordToggles() {
         });
     });
 }
+// Close the header user menu on outside click or Escape
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('user-menu');
+    if (menu && menu.open && !menu.contains(e.target)) menu.removeAttribute('open');
+});
+document.addEventListener('keydown', (e) => {
+    const menu = document.getElementById('user-menu');
+    if (e.key === 'Escape' && menu && menu.open) menu.removeAttribute('open');
+});

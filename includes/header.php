@@ -34,11 +34,28 @@ $page_title = $page_title ?? 'UnitSync';
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                     0
                 </span>
-                <span><?= e($user['first_name'] . ' ' . $user['last_name']) ?> (<strong><?= e(format_role_name($user['role'])) ?></strong>)</span>
-                <form id="signout-form" action="<?= BASE_URL ?>/auth/logout.php" method="POST" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <button type="button" id="signout-btn" class="btn btn-secondary btn-sm" style="color: #fff; border-color: rgba(255,255,255,0.3);">Sign out</button>
-                </form>
+                <?php
+                    $full_name = trim($user['first_name'] . ' ' . $user['last_name']);
+                    $initials = mb_strtoupper(mb_substr($user['first_name'], 0, 1) . mb_substr($user['last_name'], 0, 1));
+                ?>
+                <details class="user-menu" id="user-menu">
+                    <summary>
+                        <span class="user-avatar"><?= e($initials !== '' ? $initials : '?') ?></span>
+                        <span class="user-menu-name"><?= e($full_name) ?></span>
+                        <svg class="user-menu-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </summary>
+                    <div class="user-menu-panel">
+                        <div class="user-menu-info">
+                            <div class="user-menu-fullname"><?= e($full_name) ?></div>
+                            <div class="user-menu-username">@<?= e($user['username']) ?></div>
+                            <div class="user-menu-role"><?= e(format_role_name($user['role'])) ?></div>
+                        </div>
+                        <form id="signout-form" action="<?= BASE_URL ?>/auth/logout.php" method="POST">
+                            <?= csrf_field() ?>
+                            <button type="button" id="signout-btn" class="user-menu-signout">Sign out</button>
+                        </form>
+                    </div>
+                </details>
             <?php else: ?>
                 <a href="<?= BASE_URL ?>/auth/login.php" class="btn btn-primary btn-sm">Log In</a>
             <?php endif; ?>
