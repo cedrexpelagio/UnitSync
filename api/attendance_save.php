@@ -164,13 +164,34 @@ if (!empty($row_errors)) {
 try {
     $pdo->beginTransaction();
 
+    // 1. Ensure submission row exists first (draft if new)
+    if (!$submission) {
+        $stmt_sub = $pdo->prepare("
+            INSERT INTO attendance_submissions (
+                platoon_id, session_id, state, created_at, updated_at
+            ) VALUES (
+                :platoon_id, :session_id, 'draft', NOW(), NOW()
+            )
+        ");
+        $stmt_sub->execute([
+            'platoon_id' => (int)$platoon_id,
+            'session_id' => $session_id
+        ]);
+        $sub_id = (int)$pdo->lastInsertId();
+        $submission = ['id' => $sub_id, 'state' => 'draft'];
+    } else {
+        $sub_id = (int)$submission['id'];
+    }
+
+    // 2. Upsert / delete records with submission_id
     $stmt_upsert = $pdo->prepare("
         INSERT INTO attendance_records (
-            cadet_id, session_id, status, minutes_late, excuse_reason, marked_by, updated_at
+            cadet_id, session_id, submission_id, status, minutes_late, excuse_reason, marked_by, updated_at
         ) VALUES (
-            :cadet_id, :session_id, :status, :minutes_late, :excuse_reason, :marked_by, NOW()
+            :cadet_id, :session_id, :submission_id, :status, :minutes_late, :excuse_reason, :marked_by, NOW()
         )
         ON DUPLICATE KEY UPDATE
+            submission_id = VALUES(submission_id),
             status = VALUES(status),
             minutes_late = VALUES(minutes_late),
             excuse_reason = VALUES(excuse_reason),
@@ -188,6 +209,7 @@ try {
             $stmt_upsert->execute([
                 'cadet_id'      => $cid,
                 'session_id'    => $session_id,
+                'submission_id' => $sub_id,
                 'status'        => $rec['status'],
                 'minutes_late'  => $rec['minutes_late'],
                 'excuse_reason' => $rec['excuse_reason'],
@@ -204,20 +226,6 @@ try {
 
     $cleared_approvals = false;
 
-    // Ensure submission row exists with draft state
-    if (!$submission) {
-        $stmt_sub = $pdo->prepare("
-            INSERT INTO attendance_submissions (
-                platoon_id, session_id, state, created_at, updated_at
-            ) VALUES (
-                :platoon_id, :session_id, 'draft', NOW(), NOW()
-            )
-        ");
-        $stmt_sub->execute([
-            'platoon_id' => (int)$platoon_id,
-            'session_id' => $session_id
-        ]);
-    } else {
         if ($submission['state'] === 'submitted') {
             // Edit after submission clears approvals
             $stmt_sub = $pdo->prepare("

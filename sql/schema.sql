@@ -161,29 +161,11 @@ CREATE TABLE `enrollments` (
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_cadet_term` (`cadet_id`, `term_id`),
     INDEX `idx_enrollments_company_platoon` (`company_id`, `platoon_id`),
+    INDEX `idx_enrollments_term_platoon` (`term_id`, `platoon_id`),
     CONSTRAINT `fk_enrollments_cadet` FOREIGN KEY (`cadet_id`) REFERENCES `cadets` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_enrollments_term` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_enrollments_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_enrollments_platoon` FOREIGN KEY (`platoon_id`) REFERENCES `platoons` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Attendance Records Table
-CREATE TABLE `attendance_records` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `cadet_id` INT NOT NULL,
-    `session_id` INT NOT NULL,
-    `status` ENUM('P', 'A', 'L', 'E') NOT NULL,
-    `minutes_late` INT DEFAULT NULL,
-    `excuse_reason` TEXT DEFAULT NULL,
-    `document_path` VARCHAR(255) DEFAULT NULL,
-    `marked_by` INT DEFAULT NULL,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY `uk_cadet_session` (`cadet_id`, `session_id`),
-    INDEX `idx_attendance_status` (`status`),
-    CONSTRAINT `fk_attendance_cadet` FOREIGN KEY (`cadet_id`) REFERENCES `cadets` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_attendance_session` FOREIGN KEY (`session_id`) REFERENCES `training_sessions` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_attendance_marked_by` FOREIGN KEY (`marked_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Attendance Submissions Table
@@ -203,9 +185,45 @@ CREATE TABLE `attendance_submissions` (
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_platoon_session` (`platoon_id`, `session_id`),
     INDEX `idx_submissions_state` (`state`),
+    INDEX `idx_submissions_session_state` (`session_id`, `state`),
     CONSTRAINT `fk_submissions_platoon` FOREIGN KEY (`platoon_id`) REFERENCES `platoons` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_submissions_session` FOREIGN KEY (`session_id`) REFERENCES `training_sessions` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_submissions_submitted_by` FOREIGN KEY (`submitted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_submissions_battalion_approved_by` FOREIGN KEY (`battalion_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_submissions_brigade_approved_by` FOREIGN KEY (`brigade_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Attendance Records Table
+CREATE TABLE `attendance_records` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `cadet_id` INT NOT NULL,
+    `session_id` INT NOT NULL,
+    `submission_id` INT DEFAULT NULL,
+    `status` ENUM('P', 'A', 'L', 'E') NOT NULL,
+    `minutes_late` INT DEFAULT NULL,
+    `excuse_reason` TEXT DEFAULT NULL,
+    `document_path` VARCHAR(255) DEFAULT NULL,
+    `marked_by` INT DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_cadet_session` (`cadet_id`, `session_id`),
+    INDEX `idx_attendance_status` (`status`),
+    INDEX `idx_attendance_submission` (`submission_id`),
+    CONSTRAINT `fk_attendance_cadet` FOREIGN KEY (`cadet_id`) REFERENCES `cadets` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_attendance_session` FOREIGN KEY (`session_id`) REFERENCES `training_sessions` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_attendance_submission` FOREIGN KEY (`submission_id`) REFERENCES `attendance_submissions` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_attendance_marked_by` FOREIGN KEY (`marked_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- Settings Table (System Configuration)
+CREATE TABLE IF NOT EXISTS `settings` (
+    `key_name` VARCHAR(50) NOT NULL PRIMARY KEY,
+    `value` TEXT DEFAULT NULL,
+    `description` VARCHAR(255) DEFAULT NULL,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `settings` (`key_name`, `value`, `description`)
+VALUES ('attendance_at_risk_threshold', '80', 'Minimum attendance percentage threshold (cadets below this are flagged as at-risk)')
+ON DUPLICATE KEY UPDATE `key_name` = `key_name`;

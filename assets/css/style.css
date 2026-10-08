@@ -631,6 +631,50 @@ a:hover {
     margin-left: auto;
 }
 
+.badge-at-risk {
+    background-color: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FCA5A5;
+    font-weight: 600;
+}
+
+.formula-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--gray-300);
+    color: var(--gray-700);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: help;
+    margin-left: 4px;
+    vertical-align: middle;
+    border: none;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.formula-info-btn:hover {
+    background-color: var(--green-700);
+    color: var(--white);
+}
+
+.formula-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background-color: var(--green-100);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--green-900);
+}
+
 /* Card and Panel Utility Styles */
 .card {
     background-color: var(--white);
@@ -1155,3 +1199,22 @@ a:hover {
     background-color: var(--gray-400);
     border-color: var(--gray-400);
 }
+
+/* S1 Attendance Matrix Styles (Stage 2) */
+.sticky-col {
+    position: sticky;
+    left: 0;
+    background-color: var(--white);
+    z-index: 2;
+}
+
+th.sticky-col {
+    z-index: 3;
+    background-color: var(--gray-50);
+}
+
+.cell-blank {
+    color: var(--gray-300);
+    font-weight: 400;
+    user-select: none;
+}
