@@ -223,6 +223,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// ---------- View helpers ----------
+// Field error key => id of the element to jump to (used by the error summary)
+$field_anchors = [
+    'first_name'       => 'first_name',
+    'last_name'        => 'last_name',
+    'student_number'   => 'student_number',
+    'email'            => 'email',
+    'password'         => 'password',
+    'confirm_password' => 'confirm_password',
+    'role'             => 'role_group',
+    'program_id'       => 'program_id',
+    'platoon_option'   => 'platoon_option',
+    'consent'          => 'consent',
+];
+$summary_errors = array_intersect_key($errors, $field_anchors);
+
+// Role cards: value => [title, description, svg inner markup]
+$role_cards = [
+    'class_president' => [
+        'Class President',
+        'Represents one program (class).',
+        '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    ],
+    'platoon_leader' => [
+        'Platoon Leader',
+        'Leads a platoon and takes attendance.',
+        '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+    ],
+    'battalion_s1' => [
+        'Battalion S1',
+        'Battalion personnel and cadet roster.',
+        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    ],
+    'brigade_s1' => [
+        'Brigade S1',
+        'Brigade personnel and cadet roster.',
+        '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    ],
+];
+
+$err_icon = '<svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+$eye_btn = function (string $target, string $label): string {
+    return '<button type="button" class="password-toggle-btn" aria-label="' . e($label) . '" data-target="' . e($target) . '">'
+        . '<svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'
+        . '<svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+        . '</button>';
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -231,8 +279,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - UnitSync</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/register.css?v=2">
 </head>
-<body class="auth-page">
+<body class="auth-page reg-page">
     <div class="auth-brand">
         <div class="logo-title">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--green-700);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -240,171 +289,236 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <div class="auth-card" style="max-width: 540px;">
-        <header>
-            <h2>Create an Account</h2>
-            <p>Register as an ROTC unit leader or officer. Admin approval is required before sign in.</p>
+    <div class="auth-card reg-card">
+        <header class="reg-header">
+            <h2>Create an account</h2>
+            <p>Register as an ROTC unit leader or officer. An Administrator must approve your account before you can sign in.</p>
         </header>
 
-        <?php if (!empty($errors['general'])): ?>
-            <div class="banner banner-error" role="alert">
-                <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <div><?= e($errors['general']) ?></div>
-            </div>
-        <?php endif; ?>
-        <?php if (!empty($errors['csrf'])): ?>
-            <div class="banner banner-error" role="alert">
-                <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <div><?= e($errors['csrf']) ?></div>
+        <?php if (!empty($errors['general']) || !empty($errors['csrf']) || $summary_errors): ?>
+            <div class="reg-banners">
+                <?php if (!empty($errors['general'])): ?>
+                    <div class="banner banner-error" role="alert"><?= $err_icon ?><div><?= e($errors['general']) ?></div></div>
+                <?php endif; ?>
+                <?php if (!empty($errors['csrf'])): ?>
+                    <div class="banner banner-error" role="alert"><?= $err_icon ?><div><?= e($errors['csrf']) ?></div></div>
+                <?php endif; ?>
+                <?php if ($summary_errors): ?>
+                    <div class="reg-summary" id="regSummary" role="alert" tabindex="-1">
+                        <strong>Please fix <?= count($summary_errors) === 1 ? 'this item' : 'these ' . count($summary_errors) . ' items' ?> to continue:</strong>
+                        <ul>
+                            <?php foreach ($summary_errors as $key => $msg): ?>
+                                <li><a href="#<?= e($field_anchors[$key]) ?>"><?= e($msg) ?></a></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
-        <form action="<?= BASE_URL ?>/auth/register.php" method="POST">
+        <form action="<?= BASE_URL ?>/auth/register.php" method="POST" id="registerForm" class="reg-body">
             <?= csrf_field() ?>
 
-            <div class="form-group">
-                <label for="first_name">First Name *</label>
-                <input type="text" id="first_name" name="first_name" class="form-control <?= !empty($errors['first_name']) ? 'is-invalid' : '' ?>" value="<?= e($first_name) ?>" required>
-                <?php if (!empty($errors['first_name'])): ?>
-                    <span class="field-error"><?= e($errors['first_name']) ?></span>
-                <?php endif; ?>
-            </div>
-
-            <div class="form-group">
-                <label for="middle_name">Middle Name</label>
-                <input type="text" id="middle_name" name="middle_name" class="form-control" value="<?= e($middle_name) ?>">
-            </div>
-
-            <div class="form-group">
-                <label for="last_name">Last Name *</label>
-                <input type="text" id="last_name" name="last_name" class="form-control <?= !empty($errors['last_name']) ? 'is-invalid' : '' ?>" value="<?= e($last_name) ?>" required>
-                <?php if (!empty($errors['last_name'])): ?>
-                    <span class="field-error"><?= e($errors['last_name']) ?></span>
-                <?php endif; ?>
-            </div>
-
-            <div class="form-group">
-                <label for="student_number">Student Number *</label>
-                <span class="field-hint">Used by the Admin to verify your identity against the official roster</span>
-                <input type="text" id="student_number" name="student_number" class="form-control <?= !empty($errors['student_number']) ? 'is-invalid' : '' ?>" value="<?= e($student_number) ?>" required>
-                <?php if (!empty($errors['student_number'])): ?>
-                    <span class="field-error"><?= e($errors['student_number']) ?></span>
-                <?php endif; ?>
-            </div>
-
-            <div class="form-group">
-                <label for="email">Email Address *</label>
-                <input type="email" id="email" name="email" class="form-control <?= !empty($errors['email']) ? 'is-invalid' : '' ?>" value="<?= e($email) ?>" required>
-                <?php if (!empty($errors['email'])): ?>
-                    <span class="field-error"><?= e($errors['email']) ?></span>
-                <?php endif; ?>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password *</label>
-                <span class="field-hint">Minimum 10 characters with uppercase, lowercase, and numbers</span>
-                <div class="password-wrapper">
-                    <input type="password" id="password" name="password" class="form-control <?= !empty($errors['password']) ? 'is-invalid' : '' ?>" required>
-                    <button type="button" class="password-toggle-btn" aria-label="Toggle password visibility" data-target="password">
-                        <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                    </button>
+            <!-- 1. Personal details -->
+            <section class="reg-section" aria-labelledby="sec-personal">
+                <div class="reg-section-head">
+                    <span class="reg-step" aria-hidden="true">1</span>
+                    <div>
+                        <h3 id="sec-personal">Personal details</h3>
+                        <p>Use your full legal name as it appears on the official roster.</p>
+                    </div>
                 </div>
-                <?php if (!empty($errors['password'])): ?>
-                    <span class="field-error"><?= e($errors['password']) ?></span>
-                <?php endif; ?>
-            </div>
 
-            <div class="form-group">
-                <label for="confirm_password">Confirm Password *</label>
-                <div class="password-wrapper">
-                    <input type="password" id="confirm_password" name="confirm_password" class="form-control <?= !empty($errors['confirm_password']) ? 'is-invalid' : '' ?>" required>
-                    <button type="button" class="password-toggle-btn" aria-label="Toggle confirm password visibility" data-target="confirm_password">
-                        <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                    </button>
+                <div class="reg-grid">
+                    <div class="reg-field reg-col-2">
+                        <label class="reg-label" for="first_name">First name <span class="reg-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="first_name" name="first_name" autocomplete="given-name"
+                               class="form-control <?= !empty($errors['first_name']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($first_name) ?>" required>
+                        <?php if (!empty($errors['first_name'])): ?><span class="field-error"><?= e($errors['first_name']) ?></span><?php endif; ?>
+                    </div>
+
+                    <div class="reg-field reg-col-2">
+                        <label class="reg-label" for="middle_name">Middle name <span class="reg-opt">Optional</span></label>
+                        <input type="text" id="middle_name" name="middle_name" autocomplete="additional-name"
+                               class="form-control" value="<?= e($middle_name) ?>">
+                    </div>
+
+                    <div class="reg-field reg-col-2">
+                        <label class="reg-label" for="last_name">Last name <span class="reg-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="last_name" name="last_name" autocomplete="family-name"
+                               class="form-control <?= !empty($errors['last_name']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($last_name) ?>" required>
+                        <?php if (!empty($errors['last_name'])): ?><span class="field-error"><?= e($errors['last_name']) ?></span><?php endif; ?>
+                    </div>
+
+                    <div class="reg-field reg-col-3">
+                        <label class="reg-label" for="student_number">Student number <span class="reg-req" aria-hidden="true">*</span></label>
+                        <span class="reg-hint">The Admin uses this to verify you against the roster.</span>
+                        <input type="text" id="student_number" name="student_number" inputmode="numeric" autocomplete="off"
+                               class="form-control <?= !empty($errors['student_number']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($student_number) ?>" required>
+                        <?php if (!empty($errors['student_number'])): ?><span class="field-error"><?= e($errors['student_number']) ?></span><?php endif; ?>
+                    </div>
+
+                    <div class="reg-field reg-col-3">
+                        <label class="reg-label" for="email">Email address <span class="reg-req" aria-hidden="true">*</span></label>
+                        <span class="reg-hint">We will use this for account updates.</span>
+                        <input type="email" id="email" name="email" autocomplete="email" placeholder="name@example.com"
+                               class="form-control <?= !empty($errors['email']) ? 'is-invalid' : '' ?>"
+                               value="<?= e($email) ?>" required>
+                        <?php if (!empty($errors['email'])): ?><span class="field-error"><?= e($errors['email']) ?></span><?php endif; ?>
+                    </div>
                 </div>
-                <?php if (!empty($errors['confirm_password'])): ?>
-                    <span class="field-error"><?= e($errors['confirm_password']) ?></span>
-                <?php endif; ?>
-            </div>
+            </section>
 
-            <div class="form-group">
-                <label for="role">Role *</label>
-                <select id="role" name="role" class="form-control <?= !empty($errors['role']) ? 'is-invalid' : '' ?>" required>
-                    <option value="">-- Select Role --</option>
-                    <option value="class_president" <?= $role === 'class_president' ? 'selected' : '' ?>>Class President</option>
-                    <option value="platoon_leader" <?= $role === 'platoon_leader' ? 'selected' : '' ?>>Platoon Leader</option>
-                    <option value="battalion_s1" <?= $role === 'battalion_s1' ? 'selected' : '' ?>>Battalion S1</option>
-                    <option value="brigade_s1" <?= $role === 'brigade_s1' ? 'selected' : '' ?>>Brigade S1</option>
-                </select>
-                <?php if (!empty($errors['role'])): ?>
-                    <span class="field-error"><?= e($errors['role']) ?></span>
-                <?php endif; ?>
-            </div>
+            <!-- 2. Password -->
+            <section class="reg-section" aria-labelledby="sec-account">
+                <div class="reg-section-head">
+                    <span class="reg-step" aria-hidden="true">2</span>
+                    <div>
+                        <h3 id="sec-account">Secure your account</h3>
+                        <p>Choose a strong password.</p>
+                    </div>
+                </div>
 
-            <!-- Role-specific fields -->
-            <div id="group_program" class="form-group">
-                <label for="program_id">Program (Required for Class President)</label>
-                <select id="program_id" name="program_id" class="form-control <?= !empty($errors['program_id']) ? 'is-invalid' : '' ?>">
-                    <option value="">-- Select Program --</option>
-                    <?php foreach ($programs as $prog): ?>
-                        <option value="<?= (int)$prog['id'] ?>" <?= (string)$program_id === (string)$prog['id'] ? 'selected' : '' ?>>
-                            <?= e($prog['code']) ?> - <?= e($prog['name']) ?>
-                        </option>
+                <div class="reg-note">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <span>Your username is generated automatically after you submit. You will see it on the next screen, so keep it safe.</span>
+                </div>
+
+                <div class="reg-grid">
+                    <div class="reg-field reg-col-3">
+                        <label class="reg-label" for="password">Password <span class="reg-req" aria-hidden="true">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="password" name="password" autocomplete="new-password"
+                                   class="form-control <?= !empty($errors['password']) ? 'is-invalid' : '' ?>" required>
+                            <?= $eye_btn('password', 'Show or hide password') ?>
+                        </div>
+                        <?php if (!empty($errors['password'])): ?><span class="field-error"><?= e($errors['password']) ?></span><?php endif; ?>
+
+                        <div class="reg-meter" id="pw_meter" data-level="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                        <div class="reg-meter-label" id="pw_meter_label" aria-live="polite"></div>
+                    </div>
+
+                    <div class="reg-field reg-col-3">
+                        <label class="reg-label" for="confirm_password">Confirm password <span class="reg-req" aria-hidden="true">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
+                                   class="form-control <?= !empty($errors['confirm_password']) ? 'is-invalid' : '' ?>" required>
+                            <?= $eye_btn('confirm_password', 'Show or hide confirm password') ?>
+                        </div>
+                        <?php if (!empty($errors['confirm_password'])): ?><span class="field-error"><?= e($errors['confirm_password']) ?></span><?php endif; ?>
+                        <div class="reg-match" id="confirm_hint" aria-live="polite"></div>
+                    </div>
+
+                    <div class="reg-field reg-col-6">
+                        <ul class="reg-rules" id="pw_rules" aria-label="Password requirements">
+                            <li data-rule="length">At least 10 characters</li>
+                            <li data-rule="upper">One uppercase letter</li>
+                            <li data-rule="lower">One lowercase letter</li>
+                            <li data-rule="number">One number</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Role -->
+            <section class="reg-section" aria-labelledby="sec-role">
+                <div class="reg-section-head">
+                    <span class="reg-step" aria-hidden="true">3</span>
+                    <div>
+                        <h3 id="sec-role">Your role</h3>
+                        <p>Pick the position you hold in the unit.</p>
+                    </div>
+                </div>
+
+                <div class="reg-roles <?= !empty($errors['role']) ? 'is-invalid' : '' ?>" id="role_group" role="radiogroup" aria-labelledby="sec-role" tabindex="-1">
+                    <?php foreach ($role_cards as $value => [$title, $desc, $icon]): ?>
+                        <label class="reg-role">
+                            <input type="radio" name="role" value="<?= e($value) ?>" <?= $role === $value ? 'checked' : '' ?> required>
+                            <span class="reg-role-body">
+                                <svg class="reg-role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?= $icon ?></svg>
+                                <span class="reg-role-title"><?= e($title) ?></span>
+                                <span class="reg-role-desc"><?= e($desc) ?></span>
+                            </span>
+                        </label>
                     <?php endforeach; ?>
-                </select>
-                <?php if (!empty($errors['program_id'])): ?>
-                    <span class="field-error"><?= e($errors['program_id']) ?></span>
-                <?php endif; ?>
-            </div>
+                </div>
+                <?php if (!empty($errors['role'])): ?><span class="field-error"><?= e($errors['role']) ?></span><?php endif; ?>
 
-            <div id="group_platoon" class="form-group">
-                <label for="platoon_option">Company & Platoon (Required for Platoon Leader)</label>
-                <select id="platoon_option" name="platoon_option" class="form-control <?= !empty($errors['platoon_option']) ? 'is-invalid' : '' ?>">
-                    <option value="">-- Select Company & Platoon --</option>
-                    <?php 
-                    $currentCompany = '';
-                    foreach ($platoonsQuery as $row): 
-                        if ($currentCompany !== $row['company_name']) {
-                            if ($currentCompany !== '') echo '</optgroup>';
-                            $currentCompany = $row['company_name'];
-                            echo '<optgroup label="' . e($currentCompany) . '">';
-                        }
-                        $val = $row['company_id'] . ':' . $row['id'];
-                    ?>
-                        <option value="<?= e($val) ?>" <?= $platoon_option === $val ? 'selected' : '' ?>>
-                            <?= e($row['company_name']) ?> - <?= e($row['platoon_name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                    <?php if ($currentCompany !== '') echo '</optgroup>'; ?>
-                </select>
-                <?php if (!empty($errors['platoon_option'])): ?>
-                    <span class="field-error"><?= e($errors['platoon_option']) ?></span>
-                <?php endif; ?>
-            </div>
+                <!-- Role-specific fields (JS shows only the one that applies) -->
+                <div id="group_program" class="reg-group <?= $role === 'class_president' ? 'is-visible' : '' ?>" data-role-group>
+                    <div class="reg-group-box reg-field">
+                        <label class="reg-label" for="program_id">Program <span class="reg-req" aria-hidden="true">*</span></label>
+                        <span class="reg-hint">Required for Class President.</span>
+                        <select id="program_id" name="program_id" class="form-control <?= !empty($errors['program_id']) ? 'is-invalid' : '' ?>">
+                            <option value="">Select a program</option>
+                            <?php foreach ($programs as $prog): ?>
+                                <option value="<?= (int)$prog['id'] ?>" <?= (string)$program_id === (string)$prog['id'] ? 'selected' : '' ?>>
+                                    <?= e($prog['code']) ?> - <?= e($prog['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if (!empty($errors['program_id'])): ?><span class="field-error"><?= e($errors['program_id']) ?></span><?php endif; ?>
+                    </div>
+                </div>
 
-            <div class="checkbox-group">
-                <input type="checkbox" id="consent" name="consent" value="1" <?= $consent ? 'checked' : '' ?> required>
-                <label for="consent">
-                    I agree to the Data Privacy Notice and consent to the collection and processing of my personal details for ROTC management in compliance with RA 10173. *
-                </label>
-            </div>
-            <?php if (!empty($errors['consent'])): ?>
-                <span class="field-error" style="margin-top: -12px; margin-bottom: 16px;"><?= e($errors['consent']) ?></span>
-            <?php endif; ?>
+                <div id="group_platoon" class="reg-group <?= $role === 'platoon_leader' ? 'is-visible' : '' ?>" data-role-group>
+                    <div class="reg-group-box reg-field">
+                        <label class="reg-label" for="platoon_option">Company and platoon <span class="reg-req" aria-hidden="true">*</span></label>
+                        <span class="reg-hint">Required for Platoon Leader.</span>
+                        <select id="platoon_option" name="platoon_option" class="form-control <?= !empty($errors['platoon_option']) ? 'is-invalid' : '' ?>">
+                            <option value="">Select a company and platoon</option>
+                            <?php 
+                            $currentCompany = '';
+                            foreach ($platoonsQuery as $row): 
+                                if ($currentCompany !== $row['company_name']) {
+                                    if ($currentCompany !== '') echo '</optgroup>';
+                                    $currentCompany = $row['company_name'];
+                                    echo '<optgroup label="' . e($currentCompany) . '">';
+                                }
+                                $val = $row['company_id'] . ':' . $row['id'];
+                            ?>
+                                <option value="<?= e($val) ?>" <?= $platoon_option === $val ? 'selected' : '' ?>>
+                                    <?= e($row['company_name']) ?> - <?= e($row['platoon_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <?php if ($currentCompany !== '') echo '</optgroup>'; ?>
+                        </select>
+                        <?php if (!empty($errors['platoon_option'])): ?><span class="field-error"><?= e($errors['platoon_option']) ?></span><?php endif; ?>
+                    </div>
+                </div>
+            </section>
 
-            <div style="margin-top: 24px; margin-bottom: 20px;">
-                <button type="submit" class="btn btn-primary btn-block">Submit Registration</button>
-            </div>
+            <!-- 4. Consent + submit -->
+            <section class="reg-section" aria-labelledby="sec-consent">
+                <div class="reg-section-head">
+                    <span class="reg-step" aria-hidden="true">4</span>
+                    <div>
+                        <h3 id="sec-consent">Consent</h3>
+                        <p>Required to process your registration.</p>
+                    </div>
+                </div>
+
+                <div class="reg-consent <?= !empty($errors['consent']) ? 'is-invalid' : '' ?>">
+                    <input type="checkbox" id="consent" name="consent" value="1" <?= $consent ? 'checked' : '' ?> required>
+                    <label for="consent">
+                        I agree to the Data Privacy Notice and consent to the collection and processing of my personal details for ROTC management in compliance with RA 10173. <span class="reg-req">*</span>
+                    </label>
+                </div>
+                <?php if (!empty($errors['consent'])): ?><span class="field-error"><?= e($errors['consent']) ?></span><?php endif; ?>
+
+                <div class="reg-actions">
+                    <button type="submit" id="registerSubmit" class="btn btn-primary btn-block reg-submit">Submit Registration</button>
+                </div>
+
+                <p class="reg-login">Already have an account? <a href="<?= BASE_URL ?>/auth/login.php"><strong>Log in</strong></a></p>
+            </section>
         </form>
-
-        <div style="text-align: center; font-size: 13px;">
-            <p>Already have an account? <a href="<?= BASE_URL ?>/auth/login.php"><strong>Log In</strong></a></p>
-        </div>
     </div>
 
-    <script src="<?= BASE_URL ?>/assets/js/register.js"></script>
+    <script src="<?= BASE_URL ?>/assets/js/register.js?v=2"></script>
     <script src="<?= BASE_URL ?>/assets/js/ui.js"></script>
 </body>
 </html>
