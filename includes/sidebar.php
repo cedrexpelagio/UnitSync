@@ -27,9 +27,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'terms.php' ? 'active' : '' ?>">
                     <a href="<?= BASE_URL ?>/admin/terms.php">Terms & Semesters</a>
                 </li>
-                <li><span>Structure Setup <span class="badge badge-coming-soon">Soon</span></span></li>
-                <li><span>Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
-                <li><span>Audit Log <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= $current_script === 'audit_log.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/admin/audit_log.php">Audit Log</a>
+                </li>
 
             <?php elseif ($role === 'platoon_leader'): ?>
                 <li class="<?= $current_script === 'dashboard.php' ? 'active' : '' ?>">
