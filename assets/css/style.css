@@ -1199,3 +1199,22 @@ a:hover {
     background-color: var(--gray-400);
     border-color: var(--gray-400);
 }
+
+/* S1 Attendance Matrix Styles (Stage 2) */
+.sticky-col {
+    position: sticky;
+    left: 0;
+    background-color: var(--white);
+    z-index: 2;
+}
+
+th.sticky-col {
+    z-index: 3;
+    background-color: var(--gray-50);
+}
+
+.cell-blank {
+    color: var(--gray-300);
+    font-weight: 400;
+    user-select: none;
+}

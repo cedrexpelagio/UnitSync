@@ -63,8 +63,11 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= in_array($current_script, ['review_attendance.php', 'review_session.php'], true) ? 'active' : '' ?>">
                 <a href="<?= BASE_URL ?>/s1/review_attendance.php">Review Attendance</a>
                 </li>
-                <li><span>View Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= $current_script === 'view_attendance.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/s1/view_attendance.php">View Attendance</a>
+                </li>
             <?php endif; ?>
+
         </ul>
     </nav>
 </aside>

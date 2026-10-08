@@ -210,13 +210,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
+            // 1. Ensure submission row exists first (draft state if new)
+            $stmt_sub = $pdo->prepare("
+                SELECT id, state FROM attendance_submissions 
+                WHERE platoon_id = ? AND session_id = ?
+            ");
+            $stmt_sub->execute([(int)$platoon_id, $session_id]);
+            $existing_sub = $stmt_sub->fetch();
+
+            if (!$existing_sub) {
+                $stmt_ins_sub = $pdo->prepare("
+                    INSERT INTO attendance_submissions (
+                        platoon_id, session_id, state, created_at, updated_at
+                    ) VALUES (
+                        :platoon_id, :session_id, 'draft', NOW(), NOW()
+                    )
+                ");
+                $stmt_ins_sub->execute([
+                    'platoon_id' => (int)$platoon_id,
+                    'session_id' => $session_id
+                ]);
+                $sub_id = (int)$pdo->lastInsertId();
+                $existing_sub = ['id' => $sub_id, 'state' => 'draft'];
+            } else {
+                $sub_id = (int)$existing_sub['id'];
+            }
+
+            // 2. Save each record linked with submission_id
             $stmt_upsert = $pdo->prepare("
                 INSERT INTO attendance_records (
-                    cadet_id, session_id, status, minutes_late, excuse_reason, marked_by, updated_at
+                    cadet_id, session_id, submission_id, status, minutes_late, excuse_reason, marked_by, updated_at
                 ) VALUES (
-                    :cadet_id, :session_id, :status, :minutes_late, :excuse_reason, :marked_by, NOW()
+                    :cadet_id, :session_id, :submission_id, :status, :minutes_late, :excuse_reason, :marked_by, NOW()
                 )
                 ON DUPLICATE KEY UPDATE
+                    submission_id = VALUES(submission_id),
                     status = VALUES(status),
                     minutes_late = VALUES(minutes_late),
                     excuse_reason = VALUES(excuse_reason),
@@ -234,6 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt_upsert->execute([
                         'cadet_id'      => $cid,
                         'session_id'    => $session_id,
+                        'submission_id' => $sub_id,
                         'status'        => $rec['status'],
                         'minutes_late'  => $rec['minutes_late'],
                         'excuse_reason' => $rec['excuse_reason'],
@@ -247,54 +276,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Check existing submission record
-            $stmt_sub = $pdo->prepare("
-                SELECT id, state FROM attendance_submissions 
-                WHERE platoon_id = ? AND session_id = ?
-            ");
-            $stmt_sub->execute([(int)$platoon_id, $session_id]);
-            $existing_sub = $stmt_sub->fetch();
-
             if ($action === 'submit') {
                 // Submit Attendance
-                if (!$existing_sub) {
-                    $stmt_ins_sub = $pdo->prepare("
-                        INSERT INTO attendance_submissions (
-                            platoon_id, session_id, state, submitted_by, submitted_at,
-                            battalion_approved_by, battalion_approved_at, brigade_approved_by, brigade_approved_at,
-                            remarks, created_at, updated_at
-                        ) VALUES (
-                            :platoon_id, :session_id, 'submitted', :submitted_by, NOW(),
-                            NULL, NULL, NULL, NULL,
-                            NULL, NOW(), NOW()
-                        )
-                    ");
-                    $stmt_ins_sub->execute([
-                        'platoon_id'   => (int)$platoon_id,
-                        'session_id'   => $session_id,
-                        'submitted_by' => $user['id']
-                    ]);
-                    $sub_id = (int)$pdo->lastInsertId();
-                } else {
-                    $sub_id = (int)$existing_sub['id'];
-                    $stmt_upd_sub = $pdo->prepare("
-                        UPDATE attendance_submissions 
-                        SET state                 = 'submitted',
-                            submitted_by          = :submitted_by,
-                            submitted_at          = NOW(),
-                            battalion_approved_by = NULL,
-                            battalion_approved_at = NULL,
-                            brigade_approved_by   = NULL,
-                            brigade_approved_at   = NULL,
-                            remarks               = NULL,
-                            updated_at            = NOW() 
-                        WHERE id = :id
-                    ");
-                    $stmt_upd_sub->execute([
-                        'submitted_by' => $user['id'],
-                        'id'           => $sub_id
-                    ]);
-                }
+                $stmt_upd_sub = $pdo->prepare("
+                    UPDATE attendance_submissions 
+                    SET state                 = 'submitted',
+                        submitted_by          = :submitted_by,
+                        submitted_at          = NOW(),
+                        battalion_approved_by = NULL,
+                        battalion_approved_at = NULL,
+                        brigade_approved_by   = NULL,
+                        brigade_approved_at   = NULL,
+                        remarks               = NULL,
+                        updated_at            = NOW() 
+                    WHERE id = :id
+                ");
+                $stmt_upd_sub->execute([
+                    'submitted_by' => $user['id'],
+                    'id'           => $sub_id
+                ]);
 
                 // Write audit log for submission
                 log_audit(
@@ -319,32 +319,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Draft save or Mark all present
                 $cleared_approvals = false;
 
-                if (!$existing_sub) {
-                    $stmt_insert_sub = $pdo->prepare("
-                        INSERT INTO attendance_submissions (
-                            platoon_id, session_id, state, created_at, updated_at
-                        ) VALUES (
-                            :platoon_id, :session_id, 'draft', NOW(), NOW()
-                        )
+                if ($existing_sub['state'] === 'submitted') {
+                    // Editing a submitted session resets approvals
+                    $stmt_update_sub = $pdo->prepare("
+                        UPDATE attendance_submissions 
+                        SET battalion_approved_by = NULL,
+                            battalion_approved_at = NULL,
+                            brigade_approved_by   = NULL,
+                            brigade_approved_at   = NULL,
+                            updated_at            = NOW() 
+                        WHERE id = ?
                     ");
-                    $stmt_insert_sub->execute([
-                        'platoon_id' => (int)$platoon_id,
-                        'session_id' => $session_id
-                    ]);
-                } else {
-                    if ($existing_sub['state'] === 'submitted') {
-                        // Editing a submitted session resets approvals
-                        $stmt_update_sub = $pdo->prepare("
-                            UPDATE attendance_submissions 
-                            SET battalion_approved_by = NULL,
-                                battalion_approved_at = NULL,
-                                brigade_approved_by   = NULL,
-                                brigade_approved_at   = NULL,
-                                updated_at            = NOW() 
-                            WHERE id = ?
-                        ");
-                        $stmt_update_sub->execute([(int)$existing_sub['id']]);
-                        $cleared_approvals = true;
+                    $stmt_update_sub->execute([$sub_id]);
+                    $cleared_approvals = true;
+
 
                         log_audit(
                             $pdo,
