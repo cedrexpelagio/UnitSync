@@ -133,11 +133,12 @@ CREATE TABLE `cadets` (
     `last_name` VARCHAR(100) NOT NULL,
     `first_name` VARCHAR(100) NOT NULL,
     `middle_name` VARCHAR(100) DEFAULT NULL,
-    `birthday` DATE NOT NULL,
+    `birthday` DATE DEFAULT NULL,
     `gender` ENUM('Male', 'Female') NOT NULL,
     `program_id` INT NOT NULL,
-    `student_number` VARCHAR(50) NOT NULL UNIQUE,
-    `email` VARCHAR(150) NOT NULL UNIQUE,
+    `designation` VARCHAR(100) DEFAULT NULL,
+    `student_number` VARCHAR(50) DEFAULT NULL UNIQUE,
+    `email` VARCHAR(150) DEFAULT NULL UNIQUE,
     `contact_number` VARCHAR(50) DEFAULT NULL,
     `status` ENUM('active', 'dropped', 'transferred', 'graduated') NOT NULL DEFAULT 'active',
     `created_by` INT DEFAULT NULL,
@@ -208,5 +209,3 @@ CREATE TABLE `attendance_submissions` (
     CONSTRAINT `fk_submissions_battalion_approved_by` FOREIGN KEY (`battalion_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_submissions_brigade_approved_by` FOREIGN KEY (`brigade_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
