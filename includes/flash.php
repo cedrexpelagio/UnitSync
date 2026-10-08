@@ -34,3 +34,21 @@ function show_flash(): void {
     }
     echo '</div>';
 }
+
+/**
+ * Like show_flash() but renders a persistent banner (not converted to a toast by JS).
+ * Use this when you want the message to stay visible on the page after redirect.
+ */
+function show_flash_banner(): void {
+    $flashes = get_flashes();
+    if (empty($flashes)) {
+        return;
+    }
+    echo '<div class="flash-container">';
+    foreach ($flashes as $flash) {
+        $type = htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8');
+        $msg  = $flash['message']; // allow HTML (e.g. <strong>)
+        echo "<div class=\"flash-message flash-{$type}\" data-persist=\"true\" role=\"alert\">{$msg}</div>";
+    }
+    echo '</div>';
+}

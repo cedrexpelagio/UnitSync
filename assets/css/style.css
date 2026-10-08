@@ -569,12 +569,101 @@ a:hover {
     color: #475569;
 }
 
+.badge-active {
+    background-color: #D1FAE5;
+    color: #065F46;
+}
+
+.badge-inactive {
+    background-color: #E2E8F0;
+    color: #475569;
+}
+
+.badge-scheduled {
+    background-color: #E0E7FF;
+    color: #3730A3;
+}
+
+.badge-held {
+    background-color: #D1FAE5;
+    color: #065F46;
+}
+
+.badge-cancelled {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+.badge-draft {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-submitted {
+    background-color: #E0E7FF;
+    color: #3730A3;
+}
+
+.badge-returned {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
 .badge-coming-soon {
     background-color: var(--gray-50);
     color: #94A3B8;
     font-size: 11px;
     margin-left: auto;
 }
+
+/* Card and Panel Utility Styles */
+.card {
+    background-color: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    padding: 24px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 24px;
+}
+
+.card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--green-900);
+    margin-bottom: 16px;
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.form-row .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.table-row-cancelled {
+    background-color: #FFF5F5 !important;
+    color: #A0AEC0;
+}
+
+.table-row-cancelled td {
+    color: #718096;
+}
+
+.empty-state {
+    background-color: var(--gray-50);
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--radius-default);
+    padding: 32px;
+    text-align: center;
+    color: var(--gray-700);
+    margin-bottom: 24px;
+}
+
 
 /* Button Variants */
 .btn-sm {

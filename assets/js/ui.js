@@ -229,18 +229,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Convert session flash banners to toasts (Progressive Enhancement)
+    //    Skip elements with data-persist="true" — those stay as static banners.
     const flashMessages = document.querySelectorAll('.flash-message');
     flashMessages.forEach((msgEl) => {
+        if (msgEl.dataset.persist === 'true') return; // keep as static banner
+
         let type = 'info';
         if (msgEl.classList.contains('flash-success')) type = 'success';
         else if (msgEl.classList.contains('flash-error')) type = 'error';
         else if (msgEl.classList.contains('flash-warning')) type = 'warning';
 
         showToast(msgEl.textContent, type);
+        msgEl.remove(); // clean up the now-toasted element
     });
 
     // 4. Password visibility toggle (Eye icon)
     initPasswordToggles();
+
+    // 5. Term Activation confirmation modal
+    document.querySelectorAll('.activate-term-form').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const termName = form.dataset.termName || 'this term';
+            const confirmed = await showConfirm({
+                title: 'Activate Academic Term',
+                message: `Are you sure you want to activate <strong>${termName}</strong>? The currently active term will become inactive.`,
+                confirmText: 'Set as Active',
+                cancelText: 'Cancel',
+                isDanger: false
+            });
+            if (confirmed) {
+                form.submit();
+            }
+        });
+    });
+
+    // 6. Cancel Training Session confirmation modal
+    document.querySelectorAll('.cancel-session-form').forEach(form => {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionLabel = form.dataset.sessionLabel || 'this session';
+            const confirmed = await showConfirm({
+                title: 'Cancel Training Session',
+                message: `Are you sure you want to cancel <strong>${sessionLabel}</strong>?`,
+                confirmText: 'Cancel Session',
+                cancelText: 'Keep Scheduled',
+                isDanger: true
+            });
+            if (confirmed) {
+                form.submit();
+            }
+        });
+    });
 });
 
 function initPasswordToggles() {

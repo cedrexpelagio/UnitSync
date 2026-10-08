@@ -35,3 +35,48 @@ function format_role_name(string $role): string {
     ];
     return $roles[$role] ?? ucwords(str_replace('_', ' ', $role));
 }
+
+function log_audit(PDO $pdo, ?int $actorId, string $action, string $entity, ?int $entityId = null, ?string $details = null): void {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO audit_log (actor_id, action, entity, entity_id, details, created_at)
+            VALUES (:actor_id, :action, :entity, :entity_id, :details, NOW())
+        ");
+        $stmt->execute([
+            'actor_id' => $actorId,
+            'action' => $action,
+            'entity' => $entity,
+            'entity_id' => $entityId,
+            'details' => $details
+        ]);
+    } catch (Throwable $e) {
+        error_log("Failed to write to audit_log: " . $e->getMessage());
+    }
+}
+
+function next_cadet_code(PDO $pdo): string {
+    $year = date('Y');
+    $prefix = "CDT-{$year}-";
+
+    // Lock and get the latest cadet code for this year to prevent duplicates
+    $stmt = $pdo->prepare("
+        SELECT cadet_code FROM cadets 
+        WHERE cadet_code LIKE :prefix 
+        ORDER BY id DESC 
+        LIMIT 1 
+        FOR UPDATE
+    ");
+    $stmt->execute(['prefix' => $prefix . '%']);
+    $lastCode = $stmt->fetchColumn();
+
+    $nextSeq = 1;
+    if ($lastCode) {
+        $parts = explode('-', $lastCode);
+        $num = (int)end($parts);
+        $nextSeq = $num + 1;
+    }
+
+    return sprintf('CDT-%s-%04d', $year, $nextSeq);
+}
+
+

@@ -21,10 +21,12 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'requests.php' ? 'active' : '' ?>">
                     <a href="<?= BASE_URL ?>/admin/requests.php">Registration Requests</a>
                 </li>
-                <li class="<?= $current_script === 'users.php' ? 'active' : '' ?>">
-                    <a href="<?= BASE_URL ?>/admin/users.php">Users</a>
+                <li class="<?= $current_script === 'sessions.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/admin/sessions.php">Training Sessions</a>
                 </li>
-                <li><span>Training Sessions <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= $current_script === 'terms.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/admin/terms.php">Terms & Semesters</a>
+                </li>
                 <li><span>Structure Setup <span class="badge badge-coming-soon">Soon</span></span></li>
                 <li><span>Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
                 <li><span>Audit Log <span class="badge badge-coming-soon">Soon</span></span></li>
@@ -33,7 +35,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'dashboard.php' ? 'active' : '' ?>">
                     <a href="<?= BASE_URL ?>/leader/dashboard.php">Dashboard</a>
                 </li>
-                <li><span>Add Cadet <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= $current_script === 'add_cadet.php' ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/leader/add_cadet.php">Add Cadet</a>
+                </li>
                 <li><span>View Cadets <span class="badge badge-coming-soon">Soon</span></span></li>
                 <li><span>Take Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
 
