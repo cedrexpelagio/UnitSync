@@ -185,6 +185,19 @@ if ($active_term && $platoon_id) {
 
     $from = $total === 0 ? 0 : $offset + 1;
     $to = min($offset + CADETS_PAGE_SIZE, $total);
+
+    // Fetch at-risk threshold and calculate attendance percentage for page cadets
+    $at_risk_threshold = (float)get_setting($pdo, 'attendance_at_risk_threshold', '80');
+    $page_cadet_ids = array_map(fn($item) => (int)$item['id'], $cadets);
+    $attendance_summaries = [];
+    if (!empty($page_cadet_ids)) {
+        $attendance_summaries = get_platoon_cadets_attendance_summary(
+            $pdo,
+            (int)$platoon_id,
+            (int)$active_term['id'],
+            $page_cadet_ids
+        );
+    }
 }
 
 // Helper to build pagination URL
@@ -278,6 +291,14 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </div>
     <?php else: ?>
+        <div class="formula-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <div>
+                <strong>Attendance Formula:</strong> <code>(Present + Late) &divide; (Approved Sessions Held &minus; Excused) &times; 100</code>.
+                Only fully approved sessions count. Cancelled sessions are excluded. Cadets below <strong><?= (int)$at_risk_threshold ?>%</strong> are flagged as <strong>At Risk</strong>.
+            </div>
+        </div>
+
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
@@ -288,6 +309,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Gender</th>
                         <th>Student Number</th>
                         <th>Status</th>
+                        <th>
+                            Attendance %
+                            <span class="formula-info-btn" title="Formula: (Present + Late) &divide; (Approved Sessions Held &minus; Excused) &times; 100">?</span>
+                        </th>
                         <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
@@ -310,6 +335,11 @@ require_once __DIR__ . '/../includes/header.php';
                             } elseif ($c['status'] === 'graduated') {
                                 $badge_class = 'badge-graduated';
                             }
+
+                            // Attendance calculation for this cadet
+                            $cadet_summary = $attendance_summaries[(int)$c['id']] ?? null;
+                            $cadet_pct = $cadet_summary['percentage'] ?? null;
+                            $is_at_risk = ($cadet_pct !== null && $cadet_pct < $at_risk_threshold);
                         ?>
                         <tr>
                             <td>
@@ -333,6 +363,23 @@ require_once __DIR__ . '/../includes/header.php';
                                 <span class="badge <?= $badge_class ?>">
                                     <?= e($status_labels[$c['status']] ?? ucfirst($c['status'])) ?>
                                 </span>
+                            </td>
+                            <td>
+                                <?php if ($cadet_pct === null): ?>
+                                    <span style="color: var(--gray-500); font-weight: 500;" title="No approved sessions held yet or denominator is zero">&mdash;</span>
+                                <?php else: ?>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <strong style="color: <?= $is_at_risk ? 'var(--error)' : 'var(--green-900)' ?>; font-size: 13px;">
+                                            <?= number_format($cadet_pct, 1) ?>%
+                                        </strong>
+                                        <?php if ($is_at_risk): ?>
+                                            <span class="badge badge-at-risk" title="At Risk: Attendance is <?= number_format($cadet_pct, 1) ?>%, below the <?= (int)$at_risk_threshold ?>% threshold">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                                At Risk
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td style="text-align: right;">
                                 <div class="table-actions" style="justify-content: flex-end;">

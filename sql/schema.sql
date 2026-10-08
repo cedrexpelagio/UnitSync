@@ -209,3 +209,15 @@ CREATE TABLE `attendance_submissions` (
     CONSTRAINT `fk_submissions_battalion_approved_by` FOREIGN KEY (`battalion_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_submissions_brigade_approved_by` FOREIGN KEY (`brigade_approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Settings Table (System Configuration)
+CREATE TABLE IF NOT EXISTS `settings` (
+    `key_name` VARCHAR(50) NOT NULL PRIMARY KEY,
+    `value` TEXT DEFAULT NULL,
+    `description` VARCHAR(255) DEFAULT NULL,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `settings` (`key_name`, `value`, `description`)
+VALUES ('attendance_at_risk_threshold', '80', 'Minimum attendance percentage threshold (cadets below this are flagged as at-risk)')
+ON DUPLICATE KEY UPDATE `key_name` = `key_name`;

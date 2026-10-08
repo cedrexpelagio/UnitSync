@@ -274,16 +274,16 @@ Full S1 features are a separate plan. This is only the smallest slice needed to 
 ## Stage PL-8: Dashboard Summary and Attendance Percentage (Phase 2)
 
 ### Step A: HTML and PHP
-- [ ] `leader/dashboard.php`: keep the welcome card and add three summary numbers: cadets in the platoon, sessions waiting to be submitted (past or today, state none or draft), sessions returned by S1.
-- [ ] Add a percentage column to the cadet list or a platoon attendance summary:
+- [x] `leader/dashboard.php`: keep the welcome card and add three summary numbers: cadets in the platoon, sessions waiting to be submitted (past or today, state none or draft), sessions returned by S1.
+- [x] Add a percentage column to the cadet list or a platoon attendance summary:
   `(Present + Late) ÷ (Approved sessions held − Excused) × 100`
   Only fully approved sessions count. Cancelled sessions never count. A zero denominator shows "—".
-- [ ] Put the formula in one function (`attendance_percentage()` in `includes/helpers.php`) so Class President and S1 views reuse it.
-- [ ] Settings table and the "at risk" threshold (Admin setting, default 80). The leader's view highlights cadets below it.
-- [ ] Sidebar items all linked, no more "Coming soon" for the leader.
+- [x] Put the formula in one function (`attendance_percentage()` in `includes/helpers.php`) so Class President and S1 views reuse it.
+- [x] Settings table and the "at risk" threshold (Admin setting, default 80). The leader's view highlights cadets below it.
+- [x] Sidebar items all linked, no more "Coming soon" for the leader.
 
 ### Steps B and C
-- [ ] Summary cards, at-risk highlight (with an icon or label, not only color), and an info icon explaining the formula.
+- [x] Summary cards, at-risk highlight (with an icon or label, not only color), and an info icon explaining the formula.
 
 ---
 
