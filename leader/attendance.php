@@ -169,6 +169,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!in_array($status, ['P', 'A', 'L', 'E'], true)) {
             $status = '';
+            $mi = !empty($cadet['middle_name']) ? ' ' . mb_strtoupper(mb_substr(trim($cadet['middle_name']), 0, 1)) . '.' : '';
+            $unmarked_cadets[] = $cadet['last_name'] . ', ' . $cadet['first_name'] . $mi;
         }
 
         $minutes_late = null;
@@ -195,6 +197,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'minutes_late'  => $minutes_late,
             'excuse_reason' => $excuse_reason,
         ];
+    }
+
+    // Submit Validation: Every active cadet must be marked
+    if ($action === 'submit' && !empty($unmarked_cadets)) {
+        $count_unm = count($unmarked_cadets);
+        $names_preview = implode('; ', array_slice($unmarked_cadets, 0, 4)) . ($count_unm > 4 ? '; and ' . ($count_unm - 4) . ' more' : '');
+        $form_errors['general'] = "Cannot submit: {$count_unm} cadet(s) are still unmarked ({$names_preview}). Every active cadet must be marked before submitting.";
     }
 
     if (empty($form_errors)) {
@@ -238,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Ensure submission row exists with draft state
+            // Check existing submission record
             $stmt_sub = $pdo->prepare("
                 SELECT id, state FROM attendance_submissions 
                 WHERE platoon_id = ? AND session_id = ?
@@ -246,36 +255,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_sub->execute([(int)$platoon_id, $session_id]);
             $existing_sub = $stmt_sub->fetch();
 
-            if (!$existing_sub) {
-                $stmt_insert_sub = $pdo->prepare("
-                    INSERT INTO attendance_submissions (
-                        platoon_id, session_id, state, created_at, updated_at
-                    ) VALUES (
-                        :platoon_id, :session_id, 'draft', NOW(), NOW()
-                    )
-                ");
-                $stmt_insert_sub->execute([
-                    'platoon_id' => (int)$platoon_id,
-                    'session_id' => $session_id
-                ]);
+            if ($action === 'submit') {
+                // Submit Attendance
+                if (!$existing_sub) {
+                    $stmt_ins_sub = $pdo->prepare("
+                        INSERT INTO attendance_submissions (
+                            platoon_id, session_id, state, submitted_by, submitted_at,
+                            battalion_approved_by, battalion_approved_at, brigade_approved_by, brigade_approved_at,
+                            remarks, created_at, updated_at
+                        ) VALUES (
+                            :platoon_id, :session_id, 'submitted', :submitted_by, NOW(),
+                            NULL, NULL, NULL, NULL,
+                            NULL, NOW(), NOW()
+                        )
+                    ");
+                    $stmt_ins_sub->execute([
+                        'platoon_id'   => (int)$platoon_id,
+                        'session_id'   => $session_id,
+                        'submitted_by' => $user['id']
+                    ]);
+                    $sub_id = (int)$pdo->lastInsertId();
+                } else {
+                    $sub_id = (int)$existing_sub['id'];
+                    $stmt_upd_sub = $pdo->prepare("
+                        UPDATE attendance_submissions 
+                        SET state                 = 'submitted',
+                            submitted_by          = :submitted_by,
+                            submitted_at          = NOW(),
+                            battalion_approved_by = NULL,
+                            battalion_approved_at = NULL,
+                            brigade_approved_by   = NULL,
+                            brigade_approved_at   = NULL,
+                            remarks               = NULL,
+                            updated_at            = NOW() 
+                        WHERE id = :id
+                    ");
+                    $stmt_upd_sub->execute([
+                        'submitted_by' => $user['id'],
+                        'id'           => $sub_id
+                    ]);
+                }
+
+                // Write audit log for submission
+                log_audit(
+                    $pdo,
+                    $user['id'],
+                    'submit_attendance',
+                    'attendance_submission',
+                    $sub_id,
+                    json_encode([
+                        'session_id'    => $session_id,
+                        'platoon_id'    => (int)$platoon_id,
+                        'session_label' => $selected_session['label'],
+                        'total_cadets'  => count($cadets),
+                        'submitted_at'  => date('Y-m-d H:i:s')
+                    ])
+                );
+
+                $pdo->commit();
+                set_flash('success', 'Attendance for ' . e($selected_session['label']) . ' was successfully submitted to Battalion S1 and Brigade S1.');
+                redirect('leader/attendance.php?session=' . $session_id);
             } else {
-                $stmt_update_sub = $pdo->prepare("
-                    UPDATE attendance_submissions 
-                    SET updated_at = NOW() 
-                    WHERE id = ?
-                ");
-                $stmt_update_sub->execute([(int)$existing_sub['id']]);
+                // Draft save or Mark all present
+                $cleared_approvals = false;
+
+                if (!$existing_sub) {
+                    $stmt_insert_sub = $pdo->prepare("
+                        INSERT INTO attendance_submissions (
+                            platoon_id, session_id, state, created_at, updated_at
+                        ) VALUES (
+                            :platoon_id, :session_id, 'draft', NOW(), NOW()
+                        )
+                    ");
+                    $stmt_insert_sub->execute([
+                        'platoon_id' => (int)$platoon_id,
+                        'session_id' => $session_id
+                    ]);
+                } else {
+                    if ($existing_sub['state'] === 'submitted') {
+                        // Editing a submitted session resets approvals
+                        $stmt_update_sub = $pdo->prepare("
+                            UPDATE attendance_submissions 
+                            SET battalion_approved_by = NULL,
+                                battalion_approved_at = NULL,
+                                brigade_approved_by   = NULL,
+                                brigade_approved_at   = NULL,
+                                updated_at            = NOW() 
+                            WHERE id = ?
+                        ");
+                        $stmt_update_sub->execute([(int)$existing_sub['id']]);
+                        $cleared_approvals = true;
+
+                        log_audit(
+                            $pdo,
+                            $user['id'],
+                            'edit_submitted_attendance',
+                            'attendance_submission',
+                            (int)$existing_sub['id'],
+                            json_encode([
+                                'session_id'        => $session_id,
+                                'platoon_id'        => (int)$platoon_id,
+                                'cleared_approvals' => true,
+                                'updated_at'        => date('Y-m-d H:i:s')
+                            ])
+                        );
+                    } else {
+                        $stmt_update_sub = $pdo->prepare("
+                            UPDATE attendance_submissions 
+                            SET updated_at = NOW() 
+                            WHERE id = ?
+                        ");
+                        $stmt_update_sub->execute([(int)$existing_sub['id']]);
+                    }
+                }
+
+                $pdo->commit();
+
+                if ($action === 'mark_all_present') {
+                    set_flash('success', 'Unmarked cadets were marked Present and saved.');
+                } elseif ($cleared_approvals) {
+                    set_flash('success', 'Attendance saved. Notice: Any S1 approvals given for this session have been reset because changes were made.');
+                } else {
+                    set_flash('success', 'Attendance draft saved successfully.');
+                }
+
+                redirect('leader/attendance.php?session=' . $session_id);
             }
-
-            $pdo->commit();
-
-            if ($action === 'mark_all_present') {
-                set_flash('success', 'Unmarked cadets were marked Present and draft saved.');
-            } else {
-                set_flash('success', 'Attendance draft saved successfully.');
-            }
-
-            redirect('leader/attendance.php?session=' . $session_id);
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -283,7 +388,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_flash('error', 'Failed to save attendance: ' . $e->getMessage());
         }
     } else {
-        set_flash('error', 'Please fix the errors in the attendance sheet.');
+        if (isset($form_errors['general'])) {
+            set_flash('error', $form_errors['general']);
+        } else {
+            set_flash('error', 'Please fix the errors in the attendance sheet.');
+        }
     }
 }
 
@@ -460,12 +569,36 @@ require_once __DIR__ . '/../includes/header.php';
                     This session's attendance sheet has received final approval from S1 leadership and is locked in read-only mode.
                 </p>
             </div>
+        <?php elseif ($selected_session['submission_state'] === 'submitted'): ?>
+            <div class="banner-notice banner-submitted-warning">
+                <div class="banner-notice-header">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    Attendance Submitted (Under S1 Review)
+                </div>
+                <div>
+                    This attendance sheet has been submitted to S1. You may still make edits if needed, but <strong>saving any changes will clear approvals already given by S1</strong> and require re-verification.
+                </div>
+            </div>
+            <?php if ($count_unmarked > 0): ?>
+                <div class="banner-notice" style="background-color: #FEF2F2; border: 1px solid #F87171; color: #991B1B;">
+                    <div class="banner-notice-header">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        Unmarked Cadets in Submitted Session
+                    </div>
+                    <div>
+                        There are <strong><?= $count_unmarked ?> unmarked cadet(s)</strong> (e.g. recently enrolled into the platoon). Please mark them and resubmit the sheet so S1 can approve.
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php elseif ($selected_session['submission_state'] === 'returned'): ?>
-            <div style="background-color: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--radius-default); padding: 16px 20px; margin-bottom: 20px;">
-                <h4 style="color: #B45309; margin-bottom: 4px;">Attendance Returned by S1</h4>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 6px;">
+            <div class="banner-notice banner-returned-alert">
+                <div class="banner-notice-header">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Attendance Returned by S1
+                </div>
+                <div style="margin-bottom: 6px;">
                     This attendance submission was returned for correction. Please review the remarks, update the sheet, and resubmit.
-                </p>
+                </div>
                 <?php if (!empty($selected_session['submission_remarks'])): ?>
                     <div style="background-color: var(--white); border: 1px dashed #F59E0B; padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #92400E;">
                         <strong>S1 Remarks:</strong> <?= nl2br(e($selected_session['submission_remarks'])) ?>
@@ -501,8 +634,11 @@ require_once __DIR__ . '/../includes/header.php';
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-mark-all-present">
                         Mark All Present (P)
                     </button>
-                    <button type="submit" form="attendance-sheet-form" name="form_action" value="save_draft" class="btn btn-primary btn-sm" id="btn-save-draft">
+                    <button type="submit" form="attendance-sheet-form" name="form_action" value="save_draft" class="btn btn-secondary btn-sm" id="btn-save-draft">
                         Save Draft
+                    </button>
+                    <button type="button" class="btn btn-sm btn-submit-attendance btn-trigger-submit" id="btn-submit-attendance">
+                        Submit to S1
                     </button>
                 </div>
             <?php endif; ?>
@@ -671,8 +807,11 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <?php if ($is_editable): ?>
                     <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
-                        <button type="submit" name="form_action" value="save_draft" class="btn btn-primary">
+                        <button type="submit" name="form_action" value="save_draft" class="btn btn-secondary">
                             Save Draft
+                        </button>
+                        <button type="button" class="btn btn-submit-attendance btn-trigger-submit">
+                            Submit to S1
                         </button>
                     </div>
                 <?php endif; ?>
@@ -879,6 +1018,78 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Step C: Warn once if session is already submitted
+    <?php if ($selected_session['submission_state'] === 'submitted'): ?>
+    let hasWarnedSubmittedEdit = false;
+    function checkSubmittedWarning() {
+        if (!hasWarnedSubmittedEdit) {
+            hasWarnedSubmittedEdit = true;
+            if (typeof showToast === 'function') {
+                showToast('Notice: Editing a submitted sheet will reset any S1 approvals upon saving.', 'warning', 6000);
+            }
+        }
+    }
+    table.addEventListener('change', checkSubmittedWarning);
+    <?php endif; ?>
+
+    // Step C: Submit Confirmation Modal & Unmarked Cadets Enforcement
+    const submitButtons = document.querySelectorAll('.btn-trigger-submit, #btn-submit-attendance');
+    submitButtons.forEach(btn => {
+        btn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            const form = document.getElementById('attendance-sheet-form');
+            if (!form) return;
+
+            // Collect unmarked cadets
+            const unmarkedCadets = [];
+            document.querySelectorAll('.cadet-row').forEach(row => {
+                const checked = row.querySelector('input[type="radio"]:checked');
+                if (!checked || !checked.value) {
+                    const nameEl = row.querySelector('.sticky-cadet-col div:first-child');
+                    unmarkedCadets.push(nameEl ? nameEl.textContent.trim() : 'Unnamed Cadet');
+                }
+            });
+
+            if (unmarkedCadets.length > 0) {
+                const preview = unmarkedCadets.slice(0, 5).join('<br>');
+                const remaining = unmarkedCadets.length > 5 ? `<div style="margin-top: 4px; font-style: italic;">...and ${unmarkedCadets.length - 5} more</div>` : '';
+                await showConfirm({
+                    title: 'Cannot Submit Attendance',
+                    message: `<p style="margin-bottom: 10px;">There are still <strong>${unmarkedCadets.length} unmarked cadet(s)</strong>:</p>
+                              <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 6px; padding: 10px 12px; color: #C53030; font-size: 13px; max-height: 140px; overflow-y: auto;">
+                                  ${preview}
+                                  ${remaining}
+                              </div>
+                              <p style="margin-top: 10px; font-size: 13px; color: var(--gray-700);">Every cadet in the platoon must be marked (Present, Absent, Late, or Excused) before the sheet can be submitted to S1.</p>`,
+                    confirmText: 'Got It',
+                    cancelText: 'Close'
+                });
+                return;
+            }
+
+            const sessionLabel = <?= json_encode($selected_session['label']) ?>;
+            const confirmed = await showConfirm({
+                title: 'Submit Attendance to S1',
+                message: `<p style="margin-bottom: 8px;">Are you sure you want to submit attendance for <strong>${sessionLabel}</strong>?</p>
+                          <p style="font-size: 13px; color: var(--gray-700); margin: 0;">This will forward the attendance record to <strong>Battalion S1</strong> and <strong>Brigade S1</strong> for review and approval.</p>`,
+                confirmText: 'Submit Attendance',
+                cancelText: 'Cancel'
+            });
+
+            if (confirmed) {
+                let actionInput = form.querySelector('input[name="form_action"]');
+                if (!actionInput) {
+                    actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'form_action';
+                    form.appendChild(actionInput);
+                }
+                actionInput.value = 'submit';
+                form.submit();
+            }
+        });
+    });
 });
 </script>
 <?php endif; ?>

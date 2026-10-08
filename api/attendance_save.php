@@ -202,6 +202,8 @@ try {
         }
     }
 
+    $cleared_approvals = false;
+
     // Ensure submission row exists with draft state
     if (!$submission) {
         $stmt_sub = $pdo->prepare("
@@ -216,20 +218,50 @@ try {
             'session_id' => $session_id
         ]);
     } else {
-        $stmt_sub = $pdo->prepare("
-            UPDATE attendance_submissions 
-            SET updated_at = NOW() 
-            WHERE id = ?
-        ");
-        $stmt_sub->execute([(int)$submission['id']]);
+        if ($submission['state'] === 'submitted') {
+            // Edit after submission clears approvals
+            $stmt_sub = $pdo->prepare("
+                UPDATE attendance_submissions 
+                SET battalion_approved_by = NULL,
+                    battalion_approved_at = NULL,
+                    brigade_approved_by   = NULL,
+                    brigade_approved_at   = NULL,
+                    updated_at            = NOW() 
+                WHERE id = ?
+            ");
+            $stmt_sub->execute([(int)$submission['id']]);
+            $cleared_approvals = true;
+
+            log_audit(
+                $pdo,
+                $user['id'],
+                'edit_submitted_attendance',
+                'attendance_submission',
+                (int)$submission['id'],
+                json_encode([
+                    'session_id'        => $session_id,
+                    'platoon_id'        => (int)$platoon_id,
+                    'cleared_approvals' => true,
+                    'updated_at'        => date('Y-m-d H:i:s')
+                ])
+            );
+        } else {
+            $stmt_sub = $pdo->prepare("
+                UPDATE attendance_submissions 
+                SET updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt_sub->execute([(int)$submission['id']]);
+        }
     }
 
     $pdo->commit();
 
     echo json_encode([
-        'success'  => true,
-        'message'  => 'Draft saved successfully.',
-        'saved_at' => (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('h:i:s A')
+        'success'           => true,
+        'message'           => $cleared_approvals ? 'Saved. Approvals have been reset.' : 'Draft saved successfully.',
+        'saved_at'          => (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('h:i:s A'),
+        'cleared_approvals' => $cleared_approvals
     ]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

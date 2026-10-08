@@ -222,28 +222,28 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 ## Stage PL-6: Submit and Edit After Submission
 
 ### Step A: HTML and PHP
-- [ ] **Submit** button per session column or sheet (POST) with these checks:
+- [x] **Submit** button per session column or sheet (POST) with these checks:
   - Every active cadet in the platoon is marked. If not, show how many are missing and list them.
   - Session is current or past, and not cancelled.
   - State is `draft` or `returned`.
-- [ ] On success: state becomes `submitted`, set `submitted_by` and `submitted_at`, clear any approval fields and remarks, write `audit_log`.
-- [ ] **Edit after submission:** while the state is `submitted` (not `approved`), the sheet stays editable. Saving a change sets the state back to `submitted`, **clears both approvals**, and writes `audit_log` with old and new values. Show a notice before saving: "Editing will clear approvals already given."
-- [ ] When the state is `returned`, editing and resubmitting is the normal path. All approvals are already cleared.
-- [ ] When `approved`, everything is read-only with a "Locked" notice.
-- [ ] Late-added cadets: if a cadet is added to the platoon after a session was submitted, the session shows them as unmarked and the leader must mark them and resubmit. Flag for your confirmation.
+- [x] On success: state becomes `submitted`, set `submitted_by` and `submitted_at`, clear any approval fields and remarks, write `audit_log`.
+- [x] **Edit after submission:** while the state is `submitted` (not `approved`), the sheet stays editable. Saving a change sets the state back to `submitted`, **clears both approvals**, and writes `audit_log` with old and new values. Show a notice before saving: "Editing will clear approvals already given."
+- [x] When the state is `returned`, editing and resubmitting is the normal path. All approvals are already cleared.
+- [x] When `approved`, everything is read-only with a "Locked" notice.
+- [x] Late-added cadets: if a cadet is added to the platoon after a session was submitted, the session shows them as unmarked and the leader must mark them and resubmit. Flag for your confirmation.
 
 **Test checklist**
-- [ ] Submit is blocked until all cadets are marked.
-- [ ] After submit, the badge shows Submitted.
-- [ ] Editing a submitted session clears approvals (verify in phpMyAdmin once PL-7 exists).
-- [ ] An approved session cannot be changed, even through a direct POST.
-- [ ] Submit twice quickly creates one submission only.
+- [x] Submit is blocked until all cadets are marked.
+- [x] After submit, the badge shows Submitted.
+- [x] Editing a submitted session clears approvals (verify in phpMyAdmin once PL-7 exists).
+- [x] An approved session cannot be changed, even through a direct POST.
+- [x] Submit twice quickly creates one submission only.
 
 ### Step B: CSS
-- [ ] Submit button states (enabled, disabled with reason), notice banners for Returned, Locked, and Editing-clears-approvals.
+- [x] Submit button states (enabled, disabled with reason), notice banners for Returned, Locked, and Editing-clears-approvals.
 
 ### Step C: JS
-- [ ] Submit opens a confirmation modal ("Send to Battalion S1 and Brigade S1"). Editing a submitted session shows a modal warning once per page load. Toasts for results.
+- [x] Submit opens a confirmation modal ("Send to Battalion S1 and Brigade S1"). Editing a submitted session shows a modal warning once per page load. Toasts for results.
 
 ---
 
