@@ -30,6 +30,21 @@ try {
 }
 $total_cadets = array_sum($counts);
 
+// Attendance submissions waiting for THIS account's approval (active term)
+$pending_reviews = 0;
+try {
+    $my_col = ($user['role'] === 'brigade_s1') ? 'brigade_approved_at' : 'battalion_approved_at';
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM attendance_submissions sub
+        JOIN training_sessions ts ON ts.id = sub.session_id
+        WHERE ts.term_id = ? AND sub.state = 'submitted' AND sub.$my_col IS NULL
+    ");
+    $stmt->execute([(int)($term_id ?? 0)]);
+    $pending_reviews = (int)$stmt->fetchColumn();
+} catch (Throwable $ex) {
+    // tables missing: keep zero
+}
+
 // Cadets added over time (cumulative), for the line graph
 $timeline = [];
 try {
@@ -179,6 +194,11 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="metric-number" style="color: var(--gray-700);"><?= $inactive_cadets ?></div>
         <p style="color: var(--gray-700); font-size: 13px;">Dropped, transferred or graduated</p>
     </div>
+    <div class="summary-card">
+        <h3>Awaiting My Review</h3>
+        <div class="metric-number" style="color: <?= $pending_reviews > 0 ? 'var(--warning)' : 'var(--green-900)' ?>;"><?= $pending_reviews ?></div>
+        <p><a href="<?= BASE_URL ?>/s1/review_attendance.php">Review attendance &rarr;</a></p>
+    </div>
 </div>
 
 <div class="summary-card" style="max-width: 650px; margin-bottom: 24px;">
@@ -195,12 +215,11 @@ require_once __DIR__ . '/../includes/header.php';
 <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; max-width: 650px;">
     <h4 style="color: var(--warning); margin-bottom: 8px;">MVP Status: Dashboard Active</h4>
     <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 8px;">
-        Built so far for this role: cadet roster (search, filter, edit, assign to company and platoon) and CSV import.
+        Built so far for this role: cadet roster (search, filter, edit, assign to company and platoon), CSV import, and attendance review (approve or return submitted sessions).
     </p>
     <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 4px;"><strong>Still missing:</strong></p>
     <ul style="font-size: 13px; color: var(--gray-700); padding-left: 20px;">
-        <li>Review attendance: unit-wide approval queue (needs Platoon Leader attendance submissions)</li>
-        <li>View attendance: unit-wide attendance records (needs training sessions from Admin)</li>
+        <li>View attendance: roster table with a column per approved session, totals, attendance % and export</li>
         <li>Bulk assign cadets to a company and platoon from the roster</li>
     </ul>
 </div>

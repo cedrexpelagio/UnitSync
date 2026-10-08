@@ -60,7 +60,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= in_array($current_script, ['roster.php', 'edit_cadet.php'], true) ? 'active' : '' ?>">
                 <a href="<?= BASE_URL ?>/s1/roster.php">Cadet Roster</a>
                 </li>
-                <li><span>Review Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= in_array($current_script, ['review_attendance.php', 'review_session.php'], true) ? 'active' : '' ?>">
+                <a href="<?= BASE_URL ?>/s1/review_attendance.php">Review Attendance</a>
+                </li>
                 <li><span>View Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
             <?php endif; ?>
         </ul>

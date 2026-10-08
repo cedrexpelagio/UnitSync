@@ -125,41 +125,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Action: Bulk Generate Weekly Sessions
+    // Action: Bulk Generate Weekly Training Days (each day has one or more named sessions)
     if ($action === 'bulk_generate') {
         $start_date = trim($_POST['start_date'] ?? '');
         $count = (int)($_POST['count'] ?? 15);
-        $prefix = trim($_POST['prefix'] ?? 'Session ');
+
+        // Session names for each training day, typed in one box and separated by commas.
+        // They are used exactly as typed (no numbers added).
+        $raw_names = $_POST['names'] ?? '';
+        $names = [];
+        if (is_string($raw_names)) {
+            foreach (preg_split('/[,;\r\n]+/', $raw_names) as $n) {
+                $n = trim((string)preg_replace('/\s+/u', ' ', $n));
+                if ($n === '') continue;
+                $key = mb_strtolower($n);
+                if (!isset($names[$key])) $names[$key] = $n; // ignore a name typed twice
+            }
+        }
+        $names = array_values($names);
 
         if ($start_date === '') {
             $errors['start_date'] = 'Start date is required for generation.';
+        } else {
+            $sd = DateTime::createFromFormat('Y-m-d', $start_date);
+            if (!$sd || $sd->format('Y-m-d') !== $start_date) {
+                $errors['start_date'] = 'Start date is not a valid date.';
+            }
         }
         if ($count < 1 || $count > 30) {
-            $errors['count'] = 'Session count must be between 1 and 30.';
+            $errors['count'] = 'Number of weeks must be between 1 and 30.';
         }
-        if ($prefix === '') {
-            $prefix = 'Session ';
+        if (!$names) {
+            $errors['names'] = 'Enter at least one session name.';
+        } elseif (count($names) > 10) {
+            $errors['names'] = 'You can add at most 10 sessions per training day.';
+        } else {
+            foreach ($names as $n) {
+                if (mb_strlen($n) > 100) {
+                    $errors['names'] = 'Each session name must not exceed 100 characters.';
+                    break;
+                }
+            }
         }
 
         if (empty($errors)) {
             try {
                 $pdo->beginTransaction();
 
-                $start_ts = strtotime($start_date);
-                for ($i = 1; $i <= $count; $i++) {
-                    $session_ts = strtotime("+" . (($i - 1) * 7) . " days", $start_ts);
-                    $sess_date = date('Y-m-d', $session_ts);
-                    $sess_label = $prefix . $i;
+                $exists = $pdo->prepare("
+                    SELECT id FROM training_sessions
+                    WHERE term_id = :term_id AND session_date = :session_date AND label = :label
+                    LIMIT 1
+                ");
+                $insert = $pdo->prepare("
+                    INSERT INTO training_sessions (term_id, session_date, label, status)
+                    VALUES (:term_id, :session_date, :label, 'scheduled')
+                ");
 
-                    $stmt = $pdo->prepare("
-                        INSERT INTO training_sessions (term_id, session_date, label, status)
-                        VALUES (:term_id, :session_date, :label, 'scheduled')
-                    ");
-                    $stmt->execute([
-                        'term_id' => $post_term_id,
-                        'session_date' => $sess_date,
-                        'label' => $sess_label
-                    ]);
+                $created = 0;
+                $skipped = 0;
+                $start_ts = strtotime($start_date);
+                for ($i = 0; $i < $count; $i++) {
+                    $sess_date = date('Y-m-d', strtotime('+' . ($i * 7) . ' days', $start_ts));
+                    foreach ($names as $label) {
+                        $exists->execute(['term_id' => $post_term_id, 'session_date' => $sess_date, 'label' => $label]);
+                        if ($exists->fetch()) {
+                            $skipped++; // already on the calendar: do not duplicate
+                            continue;
+                        }
+                        $insert->execute(['term_id' => $post_term_id, 'session_date' => $sess_date, 'label' => $label]);
+                        $created++;
+                    }
                 }
 
                 log_audit(
@@ -170,14 +206,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     null,
                     json_encode([
                         'term_id' => $post_term_id,
-                        'count' => $count,
+                        'weeks' => $count,
                         'start_date' => $start_date,
-                        'prefix' => $prefix
+                        'names' => $names,
+                        'created' => $created,
+                        'skipped' => $skipped
                     ])
                 );
 
                 $pdo->commit();
-                set_flash('success', "Successfully generated {$count} weekly training sessions.");
+
+                $msg = "Generated {$count} weekly training day(s) with " . count($names) . " session(s) each ({$created} sessions created).";
+                if ($skipped > 0) {
+                    $msg .= " {$skipped} already existed and were skipped.";
+                }
+                set_flash('success', $msg);
                 redirect('admin/sessions.php?term_id=' . $post_term_id);
             } catch (Exception $e) {
                 if ($pdo->inTransaction()) {
@@ -285,6 +328,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin/sessions.php?term_id=' . (int)$existing['term_id']);
         }
     }
+
+    // Action: Set status for every session on one training day
+    if ($action === 'set_day_status') {
+        $day = trim($_POST['session_date'] ?? '');
+        $new_status = trim($_POST['status'] ?? '');
+        $dt = DateTime::createFromFormat('Y-m-d', $day);
+
+        if (!in_array($new_status, ['scheduled', 'held', 'cancelled'], true) || !$dt || $dt->format('Y-m-d') !== $day) {
+            set_flash('error', 'Invalid day or status.');
+            redirect('admin/sessions.php?term_id=' . $post_term_id);
+        }
+
+        // Only touch sessions that actually need the change; an individually cancelled
+        // session stays cancelled when the day is marked held.
+        if ($new_status === 'held') {
+            $only = "AND status = 'scheduled'";
+        } elseif ($new_status === 'scheduled') {
+            $only = "AND status = 'cancelled'";
+        } else {
+            $only = "AND status <> 'cancelled'";
+        }
+
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM training_sessions WHERE term_id = ? AND session_date = ? $only");
+            $stmt->execute([$post_term_id, $day]);
+            $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if ($ids) {
+                $upd = $pdo->prepare("UPDATE training_sessions SET status = :status WHERE term_id = :term_id AND session_date = :d $only");
+                $upd->execute(['status' => $new_status, 'term_id' => $post_term_id, 'd' => $day]);
+
+                log_audit(
+                    $pdo,
+                    $admin['id'],
+                    'change_day_status',
+                    'training_session',
+                    null,
+                    json_encode(['term_id' => $post_term_id, 'session_date' => $day, 'to' => $new_status, 'session_ids' => $ids])
+                );
+                set_flash('success', count($ids) . ' session(s) on ' . $day . ' set to ' . $new_status . '.');
+            } else {
+                set_flash('info', 'No sessions on ' . $day . ' needed that change.');
+            }
+        } catch (Exception $e) {
+            set_flash('error', 'Database error: ' . $e->getMessage());
+        }
+        redirect('admin/sessions.php?term_id=' . $post_term_id);
+    }
 }
 
 // Fetch sessions for current term in date order
@@ -297,6 +388,25 @@ if ($term) {
     ");
     $stmt->execute([(int)$term['id']]);
     $sessions = $stmt->fetchAll();
+}
+
+// Group sessions by date: one calendar row per training day, with its sessions inside
+$days = [];
+foreach ($sessions as $s) {
+    $days[$s['session_date']][] = $s;
+}
+
+// Small form that changes the status of every session on one training day
+function day_status_form(int $term_id, string $date, string $to, string $text, string $btn_class, string $title, ?string $confirm_label = null): string {
+    $cls = $confirm_label !== null ? ' class="cancel-session-form" data-session-label="' . e($confirm_label) . '"' : '';
+    return '<form method="POST" action="' . BASE_URL . '/admin/sessions.php"' . $cls . ' style="display:inline;">'
+        . csrf_field()
+        . '<input type="hidden" name="action" value="set_day_status">'
+        . '<input type="hidden" name="term_id" value="' . $term_id . '">'
+        . '<input type="hidden" name="session_date" value="' . e($date) . '">'
+        . '<input type="hidden" name="status" value="' . e($to) . '">'
+        . '<button type="submit" class="btn ' . e($btn_class) . ' btn-sm" title="' . e($title) . '">' . e($text) . '</button>'
+        . '</form>';
 }
 
 $page_title = 'Training Sessions';
@@ -404,7 +514,7 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Bulk Generate N Weekly Sessions Card -->
             <div class="card" style="margin-bottom: 0;">
                 <h2 class="card-title">Generate Weekly Training Sessions</h2>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">Automatically generate sequential weekly drill dates starting from a designated start day.</p>
+                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">Generate weekly training days. Each training day gets the sessions you list below, named exactly as you type them.</p>
                 <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="bulk_generate">
@@ -417,19 +527,18 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php if (isset($errors['start_date'])): ?><span class="field-error"><?= e($errors['start_date']) ?></span><?php endif; ?>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="gen_count">Number of Sessions</label>
-                            <input type="number" id="gen_count" name="count" min="1" max="30" class="form-control <?= isset($errors['count']) ? 'is-invalid' : '' ?>" value="<?= (int)($_POST['count'] ?? 15) ?>" required>
-                            <span class="field-hint">Default: 15 sessions.</span>
-                            <?php if (isset($errors['count'])): ?><span class="field-error"><?= e($errors['count']) ?></span><?php endif; ?>
-                        </div>
+                    <div class="form-group">
+                        <label for="gen_count">Number of Weeks</label>
+                        <input type="number" id="gen_count" name="count" min="1" max="30" class="form-control <?= isset($errors['count']) ? 'is-invalid' : '' ?>" value="<?= (int)($_POST['count'] ?? 15) ?>" required>
+                        <span class="field-hint">How many weekly training days to create. Default: 15.</span>
+                        <?php if (isset($errors['count'])): ?><span class="field-error"><?= e($errors['count']) ?></span><?php endif; ?>
+                    </div>
 
-                        <div class="form-group">
-                            <label for="gen_prefix">Label Prefix</label>
-                            <input type="text" id="gen_prefix" name="prefix" class="form-control" value="<?= e($_POST['prefix'] ?? 'Session ') ?>" required>
-                            <span class="field-hint">e.g. Session 1, Session 2...</span>
-                        </div>
+                    <div class="form-group">
+                        <label for="gen_names">Sessions on each training day</label>
+                        <input type="text" id="gen_names" name="names" class="form-control <?= isset($errors['names']) ? 'is-invalid' : '' ?>" value="<?= e(is_string($_POST['names'] ?? null) ? $_POST['names'] : '') ?>" maxlength="500" placeholder="e.g. Session 1, Session 2, Session 3" required>
+                        <span class="field-hint">Type the sessions for one training day, separated by commas. Each one is created on every training date exactly as typed (up to 10 per day).</span>
+                        <?php if (isset($errors['names'])): ?><span class="field-error"><?= e($errors['names']) ?></span><?php endif; ?>
                     </div>
 
                     <div style="margin-top: 16px;">
@@ -481,7 +590,7 @@ require_once __DIR__ . '/../includes/header.php';
     <!-- Sessions List Table Card -->
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-            <h2 class="card-title" style="margin-bottom: 0;">Training Sessions Calendar (<?= count($sessions) ?> total)</h2>
+            <h2 class="card-title" style="margin-bottom: 0;">Training Sessions Calendar (<?= count($days) ?> training days, <?= count($sessions) ?> sessions)</h2>
             <span style="font-size: 13px; color: var(--gray-700);">Term: <strong><?= e($term['name']) ?></strong></span>
         </div>
 
@@ -497,60 +606,64 @@ require_once __DIR__ . '/../includes/header.php';
                             <th style="width: 50px;">#</th>
                             <th>Date</th>
                             <th>Day</th>
-                            <th>Label</th>
+                            <th>Sessions</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($sessions as $idx => $s): ?>
-                            <tr class="<?= $s['status'] === 'cancelled' ? 'table-row-cancelled' : '' ?>">
-                                <td><?= $idx + 1 ?></td>
-                                <td><strong><?= e($s['session_date']) ?></strong></td>
-                                <td><?= date('l', strtotime($s['session_date'])) ?></td>
-                                <td><?= e($s['label']) ?></td>
+                        <?php $day_no = 0; ?>
+                        <?php foreach ($days as $date => $day_sessions): ?>
+                            <?php
+                                $day_no++;
+                                $n = count($day_sessions);
+                                $by = ['scheduled' => 0, 'held' => 0, 'cancelled' => 0];
+                                foreach ($day_sessions as $ds) {
+                                    $by[$ds['status']]++;
+                                }
+                                $status_names = ['scheduled' => 'Scheduled', 'held' => 'Held', 'cancelled' => 'Cancelled'];
+                            ?>
+                            <tr class="<?= $by['cancelled'] === $n ? 'table-row-cancelled' : '' ?>">
+                                <td><?= $day_no ?></td>
+                                <td><strong><?= e($date) ?></strong></td>
+                                <td><?= date('l', strtotime($date)) ?></td>
                                 <td>
-                                    <?php if ($s['status'] === 'held'): ?>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <?php foreach ($day_sessions as $s): ?>
+                                            <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>&edit=<?= (int)$s['id'] ?>"
+                                               class="badge badge-<?= e($s['status']) ?>"
+                                               style="text-decoration: none;<?= $s['status'] === 'cancelled' ? ' text-decoration: line-through;' : '' ?>"
+                                               title="Edit <?= e($s['label']) ?> (<?= e($status_names[$s['status']]) ?>)"><?= e($s['label']) ?></a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?php if ($by['held'] === $n): ?>
                                         <span class="badge badge-held">Held</span>
-                                    <?php elseif ($s['status'] === 'cancelled'): ?>
+                                    <?php elseif ($by['cancelled'] === $n): ?>
                                         <span class="badge badge-cancelled">Cancelled</span>
-                                    <?php else: ?>
+                                    <?php elseif ($by['scheduled'] === $n): ?>
                                         <span class="badge badge-scheduled">Scheduled</span>
+                                    <?php else: ?>
+                                        <?php
+                                            $parts = [];
+                                            foreach ($by as $k => $cnt) {
+                                                if ($cnt > 0) $parts[] = $cnt . ' ' . $status_names[$k];
+                                            }
+                                        ?>
+                                        <span style="font-size: 13px;"><?= e(implode(', ', $parts)) ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                        <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>&edit=<?= (int)$s['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
-
-                                        <?php if ($s['status'] !== 'cancelled'): ?>
-                                            <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php" class="cancel-session-form" data-session-label="<?= e($s['label']) ?>" style="display:inline;">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="action" value="set_status">
-                                                <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
-                                                <input type="hidden" name="session_id" value="<?= (int)$s['id'] ?>">
-                                                <input type="hidden" name="status" value="cancelled">
-                                                <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
-                                            </form>
-                                        <?php else: ?>
-                                            <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php" style="display:inline;">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="action" value="set_status">
-                                                <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
-                                                <input type="hidden" name="session_id" value="<?= (int)$s['id'] ?>">
-                                                <input type="hidden" name="status" value="scheduled">
-                                                <button type="submit" class="btn btn-secondary btn-sm">Re-schedule</button>
-                                            </form>
+                                        <?php if ($by['cancelled'] < $n): ?>
+                                            <?= day_status_form((int)$term['id'], $date, 'cancelled', 'Cancel', 'btn-danger', 'Cancel every session on this date', 'all sessions on ' . $date) ?>
                                         <?php endif; ?>
-
-                                        <?php if ($s['status'] !== 'held'): ?>
-                                            <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php" style="display:inline;">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="action" value="set_status">
-                                                <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
-                                                <input type="hidden" name="session_id" value="<?= (int)$s['id'] ?>">
-                                                <input type="hidden" name="status" value="held">
-                                                <button type="submit" class="btn btn-success btn-sm">Mark Held</button>
-                                            </form>
+                                        <?php if ($by['cancelled'] > 0): ?>
+                                            <?= day_status_form((int)$term['id'], $date, 'scheduled', 'Re-schedule', 'btn-secondary', 'Put cancelled sessions on this date back to Scheduled') ?>
+                                        <?php endif; ?>
+                                        <?php if ($by['scheduled'] > 0): ?>
+                                            <?= day_status_form((int)$term['id'], $date, 'held', 'Mark Held', 'btn-success', 'Mark every scheduled session on this date as Held') ?>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -559,6 +672,9 @@ require_once __DIR__ . '/../includes/header.php';
                     </tbody>
                 </table>
             </div>
+            <p style="margin-top: 12px; font-size: 12px; color: var(--gray-700);">
+                Cancel, Re-schedule and Mark Held apply to every session on that date. Click a session label to edit it or change just that one.
+            </p>
         <?php endif; ?>
     </div>
 
