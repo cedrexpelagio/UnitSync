@@ -146,34 +146,34 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 ### Step A: HTML and PHP
 
 **List (`leader/cadets.php`)**
-- [ ] Table of cadets enrolled in the leader's platoon for the active term: cadet code, full name (Last, First, M.I.), program, gender, student number, status.
-- [ ] Search box and pagination (plain GET). Default page size 25.
-- [ ] Row actions: Edit, Remove from platoon.
-- [ ] Empty state message when there are no cadets.
+- [x] Table of cadets enrolled in the leader's platoon for the active term: cadet code, full name (Last, First, M.I.), program, gender, student number, status.
+- [x] Search box and pagination (plain GET). Default page size 25.
+- [x] Row actions: Edit, Remove from platoon.
+- [x] Empty state message when there are no cadets.
 
 **Edit (`leader/cadet_edit.php?id=`)**
-- [ ] Verify the cadet is in the leader's platoon first, otherwise a not-found page.
-- [ ] Editable: all personal fields from PL-3, and cadet status.
-- [ ] **Not editable:** cadet code, company, platoon.
-- [ ] Same validation as PL-3, with uniqueness that ignores the cadet's own row.
-- [ ] Write old and new values to `audit_log`.
+- [x] Verify the cadet is in the leader's platoon first, otherwise a not-found page.
+- [x] Editable: all personal fields from PL-3, and cadet status.
+- [x] **Not editable:** cadet code, company, platoon.
+- [x] Same validation as PL-3, with uniqueness that ignores the cadet's own row.
+- [x] Write old and new values to `audit_log`.
 
 **Remove from platoon**
-- [ ] POST form with CSRF. Sets the enrollment's `company_id` and `platoon_id` to NULL (cadet becomes Unassigned). The cadet leaves the leader's list and future attendance sheets. Past attendance records stay.
-- [ ] Write `audit_log`.
-- [ ] A cadet who is in a submitted but not approved session: the removal is allowed, and the cadet is dropped from that session's sheet. Flag this for your decision (open point 5).
+- [x] POST form with CSRF. Sets the enrollment's `company_id` and `platoon_id` to NULL (cadet becomes Unassigned). The cadet leaves the leader's list and future attendance sheets. Past attendance records stay.
+- [x] Write `audit_log`.
+- [x] A cadet who is in a submitted but not approved session: the removal is allowed, and the cadet is dropped from that session's sheet. Flag this for your decision (open point 5).
 
 **Test checklist**
-- [ ] A leader sees only their own platoon's cadets. Guessing another platoon's cadet ID shows not found.
-- [ ] Editing saves, and the change appears in `audit_log`.
-- [ ] A removed cadet disappears from the list, and the `cadets` row still exists with NULL platoon in `enrollments`.
-- [ ] The leader cannot move a cadet to another platoon by any URL or form.
+- [x] A leader sees only their own platoon's cadets. Guessing another platoon's cadet ID shows not found.
+- [x] Editing saves, and the change appears in `audit_log`.
+- [x] A removed cadet disappears from the list, and the `cadets` row still exists with NULL platoon in `enrollments`.
+- [x] The leader cannot move a cadet to another platoon by any URL or form.
 
 ### Step B: CSS
-- [ ] Table with hover rows, status badges, action buttons, pagination, empty state. Table scrolls horizontally on phones.
+- [x] Table with hover rows, status badges, action buttons, pagination, empty state. Table scrolls horizontally on phones.
 
 ### Step C: JS
-- [ ] Remove opens a confirmation modal with the consequence explained ("The cadet becomes Unassigned. Only S1 can reassign."). Toasts for results.
+- [x] Remove opens a confirmation modal with the consequence explained ("The cadet becomes Unassigned. Only S1 can reassign."). Toasts for results.
 
 ---
 

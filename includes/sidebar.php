@@ -38,7 +38,9 @@ $current_script = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <li class="<?= $current_script === 'add_cadet.php' ? 'active' : '' ?>">
                     <a href="<?= BASE_URL ?>/leader/add_cadet.php">Add Cadet</a>
                 </li>
-                <li><span>View Cadets <span class="badge badge-coming-soon">Soon</span></span></li>
+                <li class="<?= in_array($current_script, ['cadets.php', 'cadet_edit.php'], true) ? 'active' : '' ?>">
+                    <a href="<?= BASE_URL ?>/leader/cadets.php">View Cadets</a>
+                </li>
                 <li><span>Take Attendance <span class="badge badge-coming-soon">Soon</span></span></li>
 
             <?php elseif ($role === 'class_president'): ?>

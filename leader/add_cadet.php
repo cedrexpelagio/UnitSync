@@ -252,6 +252,9 @@ $invalid_attrs = function (string $name) use ($errors): string {
 };
 
 $page_title = 'Add Cadet';
+// Grab flash messages BEFORE header.php's show_flash() consumes them.
+// We render them as persistent banners (not toasts) inside the page body.
+$page_banner_flashes = get_flashes();
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -264,6 +267,17 @@ require_once __DIR__ . '/../includes/header.php';
         <h1>Add New Cadet</h1>
         <p>Enroll a new ROTC cadet into your platoon for the active academic term.</p>
     </div>
+
+    <?php if (!empty($page_banner_flashes)): ?>
+    <div class="flash-container">
+        <?php foreach ($page_banner_flashes as $flash):
+            $ft = htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8');
+            $fm = $flash['message']; // HTML allowed (e.g. <strong>)
+        ?>
+        <div class="flash-message flash-<?= $ft ?>" data-persist="true" role="alert"><?= $fm ?></div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <!-- Status banners -->
     <?php if (!$active_term): ?>

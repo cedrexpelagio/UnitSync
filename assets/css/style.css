@@ -574,6 +574,21 @@ a:hover {
     color: #065F46;
 }
 
+.badge-dropped {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+.badge-transferred {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-graduated {
+    background-color: #DBEAFE;
+    color: #1E40AF;
+}
+
 .badge-inactive {
     background-color: #E2E8F0;
     color: #475569;
@@ -664,6 +679,12 @@ a:hover {
     margin-bottom: 24px;
 }
 
+.table-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
 
 /* Button Variants */
 .btn-sm {
