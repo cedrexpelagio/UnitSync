@@ -574,6 +574,21 @@ a:hover {
     color: #065F46;
 }
 
+.badge-dropped {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+.badge-transferred {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-graduated {
+    background-color: #DBEAFE;
+    color: #1E40AF;
+}
+
 .badge-inactive {
     background-color: #E2E8F0;
     color: #475569;
@@ -664,6 +679,12 @@ a:hover {
     margin-bottom: 24px;
 }
 
+.table-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
 
 /* Button Variants */
 .btn-sm {
@@ -854,3 +875,230 @@ a:hover {
 .user-menu-signout { display: block; width: 100%; text-align: left; padding: 12px 16px; background: none; border: none; font: inherit; font-size: 13px; color: var(--error); cursor: pointer; }
 .user-menu-signout:hover { background-color: var(--gray-50); }
 @media (max-width: 640px) { .user-menu-name { display: none; } }
+
+/* Attendance Sheet & Taking UI (Stage PL-5) */
+.attendance-session-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.session-card-pill {
+    flex: 0 0 auto;
+    min-width: 170px;
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    padding: 12px 14px;
+    text-decoration: none;
+    color: inherit;
+    transition: all var(--transition-speed) ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.session-card-pill:hover:not(.disabled) {
+    border-color: var(--green-600);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.session-card-pill.active {
+    border-color: var(--green-700);
+    background-color: var(--green-100);
+    box-shadow: 0 2px 10px rgba(36, 51, 33, 0.12);
+}
+
+.session-card-pill.disabled {
+    opacity: 0.6;
+    background: var(--gray-50);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.session-card-pill .session-date {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-700);
+}
+
+.session-card-pill .session-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--green-900);
+}
+
+.attendance-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 16px 20px;
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+}
+
+.att-counter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-300);
+    color: var(--gray-700);
+}
+
+.save-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
+    transition: color 200ms ease;
+}
+
+.save-indicator.saving {
+    color: var(--warning);
+}
+
+.save-indicator.saved {
+    color: var(--success);
+}
+
+.save-indicator.error {
+    color: var(--error);
+}
+
+/* Radio button pills for Attendance P, A, L, E */
+.att-radio-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--gray-50);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--gray-300);
+}
+
+.att-radio-label {
+    position: relative;
+    cursor: pointer;
+    margin: 0;
+}
+
+.att-radio-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.att-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gray-700);
+    background: transparent;
+    transition: all 150ms ease;
+    user-select: none;
+}
+
+.att-radio-label:hover .att-btn {
+    background: var(--white);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Checked button styles */
+.att-radio-label.opt-p input[type="radio"]:checked + .att-btn {
+    background-color: #16A34A;
+    color: #FFFFFF;
+    box-shadow: 0 2px 5px rgba(22, 163, 74, 0.4);
+}
+
+.att-radio-label.opt-a input[type="radio"]:checked + .att-btn {
+    background-color: #DC2626;
+    color: #FFFFFF;
+    box-shadow: 0 2px 5px rgba(220, 38, 38, 0.4);
+}
+
+.att-radio-label.opt-l input[type="radio"]:checked + .att-btn {
+    background-color: #D97706;
+    color: #FFFFFF;
+    box-shadow: 0 2px 5px rgba(217, 119, 6, 0.4);
+}
+
+.att-radio-label.opt-e input[type="radio"]:checked + .att-btn {
+    background-color: #2563EB;
+    color: #FFFFFF;
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.4);
+}
+
+.att-clear-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--gray-500);
+    cursor: pointer;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.att-clear-btn:hover {
+    color: var(--gray-700);
+    background: var(--gray-200);
+}
+
+/* Sticky column for cadet name */
+.sticky-cadet-col {
+    position: sticky;
+    left: 0;
+    background-color: var(--white);
+    z-index: 5;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
+}
+
+.data-table thead th.sticky-cadet-col {
+    background-color: var(--gray-50);
+    z-index: 6;
+}
+
+.data-table tbody tr:hover td.sticky-cadet-col {
+    background-color: var(--green-100);
+}
+
+.cadet-details-subtext {
+    font-size: 11px;
+    color: var(--gray-700);
+    margin-top: 2px;
+}
+
+.att-extra-inputs {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.att-extra-inputs input {
+    font-size: 12px;
+    padding: 6px 8px;
+    height: auto;
+}

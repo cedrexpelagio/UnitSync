@@ -146,34 +146,34 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 ### Step A: HTML and PHP
 
 **List (`leader/cadets.php`)**
-- [ ] Table of cadets enrolled in the leader's platoon for the active term: cadet code, full name (Last, First, M.I.), program, gender, student number, status.
-- [ ] Search box and pagination (plain GET). Default page size 25.
-- [ ] Row actions: Edit, Remove from platoon.
-- [ ] Empty state message when there are no cadets.
+- [x] Table of cadets enrolled in the leader's platoon for the active term: cadet code, full name (Last, First, M.I.), program, gender, student number, status.
+- [x] Search box and pagination (plain GET). Default page size 25.
+- [x] Row actions: Edit, Remove from platoon.
+- [x] Empty state message when there are no cadets.
 
 **Edit (`leader/cadet_edit.php?id=`)**
-- [ ] Verify the cadet is in the leader's platoon first, otherwise a not-found page.
-- [ ] Editable: all personal fields from PL-3, and cadet status.
-- [ ] **Not editable:** cadet code, company, platoon.
-- [ ] Same validation as PL-3, with uniqueness that ignores the cadet's own row.
-- [ ] Write old and new values to `audit_log`.
+- [x] Verify the cadet is in the leader's platoon first, otherwise a not-found page.
+- [x] Editable: all personal fields from PL-3, and cadet status.
+- [x] **Not editable:** cadet code, company, platoon.
+- [x] Same validation as PL-3, with uniqueness that ignores the cadet's own row.
+- [x] Write old and new values to `audit_log`.
 
 **Remove from platoon**
-- [ ] POST form with CSRF. Sets the enrollment's `company_id` and `platoon_id` to NULL (cadet becomes Unassigned). The cadet leaves the leader's list and future attendance sheets. Past attendance records stay.
-- [ ] Write `audit_log`.
-- [ ] A cadet who is in a submitted but not approved session: the removal is allowed, and the cadet is dropped from that session's sheet. Flag this for your decision (open point 5).
+- [x] POST form with CSRF. Sets the enrollment's `company_id` and `platoon_id` to NULL (cadet becomes Unassigned). The cadet leaves the leader's list and future attendance sheets. Past attendance records stay.
+- [x] Write `audit_log`.
+- [x] A cadet who is in a submitted but not approved session: the removal is allowed, and the cadet is dropped from that session's sheet. Flag this for your decision (open point 5).
 
 **Test checklist**
-- [ ] A leader sees only their own platoon's cadets. Guessing another platoon's cadet ID shows not found.
-- [ ] Editing saves, and the change appears in `audit_log`.
-- [ ] A removed cadet disappears from the list, and the `cadets` row still exists with NULL platoon in `enrollments`.
-- [ ] The leader cannot move a cadet to another platoon by any URL or form.
+- [x] A leader sees only their own platoon's cadets. Guessing another platoon's cadet ID shows not found.
+- [x] Editing saves, and the change appears in `audit_log`.
+- [x] A removed cadet disappears from the list, and the `cadets` row still exists with NULL platoon in `enrollments`.
+- [x] The leader cannot move a cadet to another platoon by any URL or form.
 
 ### Step B: CSS
-- [ ] Table with hover rows, status badges, action buttons, pagination, empty state. Table scrolls horizontally on phones.
+- [x] Table with hover rows, status badges, action buttons, pagination, empty state. Table scrolls horizontally on phones.
 
 ### Step C: JS
-- [ ] Remove opens a confirmation modal with the consequence explained ("The cadet becomes Unassigned. Only S1 can reassign."). Toasts for results.
+- [x] Remove opens a confirmation modal with the consequence explained ("The cadet becomes Unassigned. Only S1 can reassign."). Toasts for results.
 
 ---
 
@@ -182,40 +182,40 @@ A Platoon Leader cannot take attendance until sessions exist, so this comes firs
 ### Step A: HTML and PHP (`leader/attendance.php`)
 
 **Session selector**
-- [ ] List sessions of the active term with a badge from `attendance_submissions` for this platoon: Not started, Draft, Submitted, Returned, Approved. Cancelled sessions are shown disabled.
-- [ ] Future sessions are shown but locked (date greater than today in Asia/Manila). Only current or past sessions can be marked.
-- [ ] Selecting a session (GET `?session=ID`) shows the sheet.
+- [x] List sessions of the active term with a badge from `attendance_submissions` for this platoon: Not started, Draft, Submitted, Returned, Approved. Cancelled sessions are shown disabled.
+- [x] Future sessions are shown but locked (date greater than today in Asia/Manila). Only current or past sessions can be marked.
+- [x] Selecting a session (GET `?session=ID`) shows the sheet.
 
 **Sheet**
-- [ ] Rows: Last name, First name, M.I., Program, for each active cadet in the platoon.
-- [ ] Per cadet a status radio group: P, A, L, E. All cadets start blank (Not yet marked), never defaulted to Absent.
-- [ ] Late: optional minutes field. Excused: required reason text.
-- [ ] **Mark all Present** as a plain submit button (sets every cadet to P, keeps existing L and E rows only if the leader chooses "only unmarked"; proposed default is to fill only unmarked cadets so work is not lost).
-- [ ] **Save draft** button (POST). Saves marks, creates the submission row with state `draft` if none exists.
-- [ ] Locked (read-only) when the session is `approved`. Editable when `draft`, `submitted`, or `returned`.
-- [ ] Show the S1's remarks in a notice when the state is `returned`.
+- [x] Rows: Last name, First name, M.I., Program, for each active cadet in the platoon.
+- [x] Per cadet a status radio group: P, A, L, E. All cadets start blank (Not yet marked), never defaulted to Absent.
+- [x] Late: optional minutes field. Excused: required reason text.
+- [x] **Mark all Present** as a plain submit button (sets every cadet to P, keeps existing L and E rows only if the leader chooses "only unmarked"; proposed default is to fill only unmarked cadets so work is not lost).
+- [x] **Save draft** button (POST). Saves marks, creates the submission row with state `draft` if none exists.
+- [x] Locked (read-only) when the session is `approved`. Editable when `draft`, `submitted`, or `returned`.
+- [x] Show the S1's remarks in a notice when the state is `returned`.
 
 **Rules enforced on the server**
-- [ ] The session belongs to the active term and is not cancelled or in the future.
-- [ ] Every cadet ID posted belongs to the leader's platoon and is active.
-- [ ] Status is one of P, A, L, E. Minutes late is a non-negative integer. E requires a reason.
-- [ ] Use a transaction for the save (upsert on `cadet_id, session_id`).
+- [x] The session belongs to the active term and is not cancelled or in the future.
+- [x] Every cadet ID posted belongs to the leader's platoon and is active.
+- [x] Status is one of P, A, L, E. Minutes late is a non-negative integer. E requires a reason.
+- [x] Use a transaction for the save (upsert on `cadet_id, session_id`).
 
 **Test checklist**
-- [ ] A future session cannot be marked, even by posting directly.
-- [ ] Unmarked cadets stay blank after saving.
-- [ ] E without a reason shows an error next to the row.
-- [ ] A cadet from another platoon posted in the form is ignored or rejected.
-- [ ] Reloading shows the saved draft.
+- [x] A future session cannot be marked, even by posting directly.
+- [x] Unmarked cadets stay blank after saving.
+- [x] E without a reason shows an error next to the row.
+- [x] A cadet from another platoon posted in the form is ignored or rejected.
+- [x] Reloading shows the saved draft.
 
 ### Step B: CSS
-- [ ] Sheet table with sticky name column and horizontal scroll on phones. Large tap targets for the P, A, L, E buttons. Colors: P success, A error, L warning, E info, and the letter always visible. Status badges for session states.
+- [x] Sheet table with sticky name column and horizontal scroll on phones. Large tap targets for the P, A, L, E buttons. Colors: P success, A error, L warning, E info, and the letter always visible. Status badges for session states.
 
 ### Step C: JS
-- [ ] **Auto-save** of draft entries (debounced fetch to `api/attendance_save.php`, JSON in the standard format, CSRF checked, same server rules as the page). A small "Saved" or "Saving..." indicator.
-- [ ] Show or hide the minutes and reason fields depending on the chosen status.
-- [ ] Mark all Present without a page reload. A counter of marked and unmarked cadets.
-- [ ] The page still works with JS off through the Save draft button.
+- [x] **Auto-save** of draft entries (debounced fetch to `api/attendance_save.php`, JSON in the standard format, CSRF checked, same server rules as the page). A small "Saved" or "Saving..." indicator.
+- [x] Show or hide the minutes and reason fields depending on the chosen status.
+- [x] Mark all Present without a page reload. A counter of marked and unmarked cadets.
+- [x] The page still works with JS off through the Save draft button.
 
 ---
 
