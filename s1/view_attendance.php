@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/attendance_queries.php';
+require_once __DIR__ . '/../includes/export_helpers.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -134,13 +135,11 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <div>
         <?php if ($active_term && !empty($approved_sessions)): ?>
-            <a href="<?= BASE_URL ?>/s1/export_attendance_csv.php<?= filter_query(['page' => null]) ?>" 
-               class="btn btn-secondary btn-sm" 
-               id="export-csv-btn" 
-               style="display: inline-flex; align-items: center; gap: 6px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Export CSV
-            </a>
+            <?= exp_menu([
+                'Excel (.xls)'   => ['export_attendance.php', ['format' => 'xls'], 'Branded report with colored status cells'],
+                'PDF'            => ['export_attendance.php', ['format' => 'pdf'], 'Print-ready, opens in a new tab'],
+                'CSV (raw data)' => ['export_attendance_csv.php', [], 'Plain data with P/L/A/E letters'],
+            ]) ?>
         <?php endif; ?>
     </div>
 </div>
