@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/export_helpers.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -269,7 +270,13 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="rt-bar">
     <span>Showing <strong><?= $from ?>-<?= $to ?></strong> of <strong><?= $total ?></strong> cadet(s)</span>
-    <span class="rt-bar-links"><a href="<?= BASE_URL ?>/s1/import_cadets.php">Import cadets (CSV)</a></span>
+    <span class="rt-bar-links" style="display:inline-flex;align-items:center;gap:14px;">
+        <a href="<?= BASE_URL ?>/s1/import_cadets.php">Import cadets (CSV)</a>
+        <?= exp_menu([
+            'Excel (.xls)' => ['export_roster.php', ['format' => 'xls'], 'Branded roster with status colors'],
+            'PDF'          => ['export_roster.php', ['format' => 'pdf'], 'Print-ready, opens in a new tab'],
+        ]) ?>
+    </span>
 </div>
 
 <div class="table-responsive rt-wrap">
