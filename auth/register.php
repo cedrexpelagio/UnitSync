@@ -1,5 +1,5 @@
 <?php
-// User Registration (Stage 1 - Step A: Plain HTML and PHP)
+// User Registration
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
@@ -18,9 +18,9 @@ $companies = $pdo->query("SELECT id, name FROM companies ORDER BY id ASC")->fetc
 
 // Platoons with company info for grouped dropdown
 $platoonsQuery = $pdo->query("
-    SELECT p.id, p.name AS platoon_name, c.id AS company_id, c.name AS company_name 
-    FROM platoons p 
-    JOIN companies c ON p.company_id = c.id 
+    SELECT p.id, p.name AS platoon_name, c.id AS company_id, c.name AS company_name
+    FROM platoons p
+    JOIN companies c ON p.company_id = c.id
     ORDER BY c.name ASC, p.name ASC
 ")->fetchAll();
 
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($first_name === '') $errors['first_name'] = 'First name is required.';
     if ($last_name === '') $errors['last_name'] = 'Last name is required.';
     if ($student_number === '') $errors['student_number'] = 'Student number is required.';
-    
+
     // Email validation
     if ($email === '') {
         $errors['email'] = 'Email is required.';
@@ -154,9 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Find highest sequence number for this prefix and year
             $stmt = $pdo->prepare("
-                SELECT username FROM users 
-                WHERE username LIKE ? 
-                ORDER BY username DESC 
+                SELECT username FROM users
+                WHERE username LIKE ?
+                ORDER BY username DESC
                 LIMIT 1 FOR UPDATE
             ");
             $stmt->execute([$likePattern]);
@@ -177,10 +177,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Insert into users
             $stmt = $pdo->prepare("
                 INSERT INTO users (
-                    username, password_hash, first_name, middle_name, last_name, 
+                    username, password_hash, first_name, middle_name, last_name,
                     student_number, email, role, status, must_change_password, created_at
                 ) VALUES (
-                    :username, :password_hash, :first_name, :middle_name, :last_name, 
+                    :username, :password_hash, :first_name, :middle_name, :last_name,
                     :student_number, :email, :role, 'pending', 0, NOW()
                 )
             ");
@@ -224,21 +224,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ---------- View helpers ----------
-// Field error key => id of the element to jump to (used by the error summary)
-$field_anchors = [
-    'first_name'       => 'first_name',
-    'last_name'        => 'last_name',
-    'student_number'   => 'student_number',
-    'email'            => 'email',
-    'password'         => 'password',
-    'confirm_password' => 'confirm_password',
-    'role'             => 'role_group',
-    'program_id'       => 'program_id',
-    'platoon_option'   => 'platoon_option',
-    'consent'          => 'consent',
+// ---------- View data ----------
+// Which wizard step each field lives on
+$field_steps = [
+    'first_name' => 1, 'middle_name' => 1, 'last_name' => 1, 'student_number' => 1, 'email' => 1,
+    'password' => 2, 'confirm_password' => 2,
+    'role' => 3, 'program_id' => 3, 'platoon_option' => 3,
+    'consent' => 4,
 ];
-$summary_errors = array_intersect_key($errors, $field_anchors);
+$field_errors = array_intersect_key($errors, $field_steps);
+$steps_with_err = [];
+foreach (array_keys($field_errors) as $k) {
+    $steps_with_err[$field_steps[$k]] = true;
+}
+$start_step = $steps_with_err ? min(array_keys($steps_with_err)) : 1;
+$max_reach  = $field_errors ? 4 : 1;
+$step_names = [1 => 'Details', 2 => 'Password', 3 => 'Role', 4 => 'Confirm'];
 
 // Role cards: value => [title, description, svg inner markup]
 $role_cards = [
@@ -255,7 +256,7 @@ $role_cards = [
     'battalion_s1' => [
         'Battalion S1',
         'Battalion personnel and cadet roster.',
-        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+        '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
     ],
     'brigade_s1' => [
         'Brigade S1',
@@ -264,12 +265,76 @@ $role_cards = [
     ],
 ];
 
-$err_icon = '<svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
-$eye_btn = function (string $target, string $label): string {
-    return '<button type="button" class="password-toggle-btn" aria-label="' . e($label) . '" data-target="' . e($target) . '">'
-        . '<svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>'
-        . '<svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
-        . '</button>';
+$svg = function (string $inner, string $class = '', int $size = 18): string {
+    return '<svg class="' . $class . '" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $inner . '</svg>';
+};
+$ico_alert = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+$ico_check = '<polyline points="20 6 9 17 4 12"/>';
+$ico_arrow = '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>';
+$ico_arrow_l = '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>';
+
+// Inline message slot (JS fills it; server errors are pre-rendered)
+$msg_block = function (string $name, string $text) use ($svg, $ico_alert): void {
+    echo '<div class="ua-msg" id="' . e($name) . '-msg" aria-live="polite"><div><p class="ua-msg-inner">'
+        . $svg($ico_alert, '', 14) . '<span data-msg>' . e($text) . '</span></p></div></div>';
+};
+
+// Generic text/email input field
+$old = compact('first_name', 'middle_name', 'last_name', 'student_number', 'email');
+$text_field = function (string $name, string $label, array $o = []) use ($errors, $old, $msg_block, $svg, $ico_check): void {
+    $type = $o['type'] ?? 'text';
+    $required = $o['required'] ?? true;
+    $err = $errors[$name] ?? '';
+    $span = !empty($o['span2']) ? ' ua-span-2' : '';
+    ?>
+    <div class="ua-field<?= $span ?> <?= $err !== '' ? 'has-error' : '' ?>" data-field="<?= e($name) ?>">
+        <label class="ua-label" for="<?= e($name) ?>">
+            <span><?= e($label) ?><?php if ($required): ?><span class="ua-req" aria-hidden="true"> *</span><?php endif; ?></span>
+            <?php if (!$required): ?><span class="ua-opt">Optional</span><?php endif; ?>
+        </label>
+        <div class="ua-control">
+            <input type="<?= e($type) ?>" id="<?= e($name) ?>" name="<?= e($name) ?>" class="ua-input"
+                   value="<?= e($old[$name] ?? '') ?>"
+                   autocomplete="<?= e($o['autocomplete'] ?? 'off') ?>"
+                   <?= !empty($o['inputmode']) ? 'inputmode="' . e($o['inputmode']) . '"' : '' ?>
+                   <?= !empty($o['placeholder']) ? 'placeholder="' . e($o['placeholder']) . '"' : '' ?>
+                   <?= !empty($o['autofocus']) ? 'autofocus' : '' ?>
+                   aria-describedby="<?= e($name) ?>-msg"
+                   <?= $err !== '' ? 'aria-invalid="true"' : '' ?>>
+            <?= $svg($ico_check, 'ua-tick') ?>
+        </div>
+        <?php if (!empty($o['hint'])): ?><span class="ua-hint"><?= e($o['hint']) ?></span><?php endif; ?>
+        <?php $msg_block($name, $err); ?>
+    </div>
+    <?php
+};
+
+// Password input with show/hide toggle
+$password_field = function (string $name, string $label, bool $with_meter) use ($errors, $msg_block, $svg): void {
+    $err = $errors[$name] ?? '';
+    ?>
+    <div class="ua-field <?= $err !== '' ? 'has-error' : '' ?>" data-field="<?= e($name) ?>">
+        <label class="ua-label" for="<?= e($name) ?>"><span><?= e($label) ?><span class="ua-req" aria-hidden="true"> *</span></span></label>
+        <div class="ua-control">
+            <input type="password" id="<?= e($name) ?>" name="<?= e($name) ?>" class="ua-input ua-input--pw"
+                   autocomplete="new-password" aria-describedby="<?= e($name) ?>-msg"
+                   <?= $err !== '' ? 'aria-invalid="true"' : '' ?>>
+            <button type="button" class="ua-eye" data-target="<?= e($name) ?>" aria-pressed="false" aria-label="Show password">
+                <?= $svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>', 'eye-open', 20) ?>
+                <?= $svg('<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>', 'eye-closed', 20) ?>
+            </button>
+        </div>
+        <?php if ($with_meter): ?>
+            <div class="ua-meter-row" aria-hidden="true">
+                <div class="ua-meter" id="pwMeter" data-level="0"><span></span><span></span><span></span><span></span></div>
+                <span class="ua-meter-label" id="pwMeterLabel"></span>
+            </div>
+        <?php else: ?>
+            <p class="ua-match" id="matchHint" aria-live="polite"></p>
+        <?php endif; ?>
+        <?php $msg_block($name, $err); ?>
+    </div>
+    <?php
 };
 ?>
 <!DOCTYPE html>
@@ -278,247 +343,249 @@ $eye_btn = function (string $target, string $label): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - UnitSync</title>
+    <script>
+        (function () {
+            var d = document.documentElement;
+            d.classList.add('js');
+            try {
+                var e = sessionStorage.getItem('ua-enter');
+                if (e) { d.setAttribute('data-enter', e); sessionStorage.removeItem('ua-enter'); }
+            } catch (x) {}
+        })();
+    </script>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/register.css?v=2">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/auth.css?v=1">
 </head>
-<body class="auth-page reg-page">
-    <div class="auth-brand">
-        <div class="logo-title">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--green-700);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>UnitSync</span>
+<body class="ua" data-page="register">
+    <div class="ua-topbar" aria-hidden="true"></div>
+    <p class="ua-sr" id="uaLive" role="status" aria-live="polite"></p>
+
+    <aside class="ua-aside">
+        <span class="ua-orb ua-orb-1" aria-hidden="true"></span>
+        <span class="ua-orb ua-orb-2" aria-hidden="true"></span>
+
+        <div class="ua-brand">Unit<span>Sync</span></div>
+
+        <div class="ua-aside-copy">
+            <h2>Join your unit on UnitSync.</h2>
+            <p>Create your account in four short steps. An Administrator verifies it against the roster before you can sign in.</p>
+            <ul class="ua-points">
+                <li>Takes about two minutes</li>
+                <li>Your username is generated for you</li>
+                <li>Your data is handled under RA 10173</li>
+            </ul>
         </div>
-    </div>
 
-    <div class="auth-card reg-card">
-        <header class="reg-header">
-            <h2>Create an account</h2>
-            <p>Register as an ROTC unit leader or officer. An Administrator must approve your account before you can sign in.</p>
-        </header>
+        <p class="ua-aside-foot">ROTC unit management</p>
+    </aside>
 
-        <?php if (!empty($errors['general']) || !empty($errors['csrf']) || $summary_errors): ?>
-            <div class="reg-banners">
-                <?php if (!empty($errors['general'])): ?>
-                    <div class="banner banner-error" role="alert"><?= $err_icon ?><div><?= e($errors['general']) ?></div></div>
-                <?php endif; ?>
-                <?php if (!empty($errors['csrf'])): ?>
-                    <div class="banner banner-error" role="alert"><?= $err_icon ?><div><?= e($errors['csrf']) ?></div></div>
-                <?php endif; ?>
-                <?php if ($summary_errors): ?>
-                    <div class="reg-summary" id="regSummary" role="alert" tabindex="-1">
-                        <strong>Please fix <?= count($summary_errors) === 1 ? 'this item' : 'these ' . count($summary_errors) . ' items' ?> to continue:</strong>
-                        <ul>
-                            <?php foreach ($summary_errors as $key => $msg): ?>
-                                <li><a href="#<?= e($field_anchors[$key]) ?>"><?= e($msg) ?></a></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+    <main class="ua-main">
+        <div class="ua-panel ua-panel--wide">
+            <header class="ua-head ua-rise" style="--i:0">
+                <h1 class="ua-title">Create your account</h1>
+                <p class="ua-sub">Register as an ROTC unit leader or officer.</p>
+            </header>
 
-        <form action="<?= BASE_URL ?>/auth/register.php" method="POST" id="registerForm" class="reg-body">
-            <?= csrf_field() ?>
-
-            <!-- 1. Personal details -->
-            <section class="reg-section" aria-labelledby="sec-personal">
-                <div class="reg-section-head">
-                    <span class="reg-step" aria-hidden="true">1</span>
-                    <div>
-                        <h3 id="sec-personal">Personal details</h3>
-                        <p>Use your full legal name as it appears on the official roster.</p>
-                    </div>
-                </div>
-
-                <div class="reg-grid">
-                    <div class="reg-field reg-col-2">
-                        <label class="reg-label" for="first_name">First name <span class="reg-req" aria-hidden="true">*</span></label>
-                        <input type="text" id="first_name" name="first_name" autocomplete="given-name"
-                               class="form-control <?= !empty($errors['first_name']) ? 'is-invalid' : '' ?>"
-                               value="<?= e($first_name) ?>" required>
-                        <?php if (!empty($errors['first_name'])): ?><span class="field-error"><?= e($errors['first_name']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="reg-field reg-col-2">
-                        <label class="reg-label" for="middle_name">Middle name <span class="reg-opt">Optional</span></label>
-                        <input type="text" id="middle_name" name="middle_name" autocomplete="additional-name"
-                               class="form-control" value="<?= e($middle_name) ?>">
-                    </div>
-
-                    <div class="reg-field reg-col-2">
-                        <label class="reg-label" for="last_name">Last name <span class="reg-req" aria-hidden="true">*</span></label>
-                        <input type="text" id="last_name" name="last_name" autocomplete="family-name"
-                               class="form-control <?= !empty($errors['last_name']) ? 'is-invalid' : '' ?>"
-                               value="<?= e($last_name) ?>" required>
-                        <?php if (!empty($errors['last_name'])): ?><span class="field-error"><?= e($errors['last_name']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="reg-field reg-col-3">
-                        <label class="reg-label" for="student_number">Student number <span class="reg-req" aria-hidden="true">*</span></label>
-                        <span class="reg-hint">The Admin uses this to verify you against the roster.</span>
-                        <input type="text" id="student_number" name="student_number" inputmode="numeric" autocomplete="off"
-                               class="form-control <?= !empty($errors['student_number']) ? 'is-invalid' : '' ?>"
-                               value="<?= e($student_number) ?>" required>
-                        <?php if (!empty($errors['student_number'])): ?><span class="field-error"><?= e($errors['student_number']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="reg-field reg-col-3">
-                        <label class="reg-label" for="email">Email address <span class="reg-req" aria-hidden="true">*</span></label>
-                        <span class="reg-hint">We will use this for account updates.</span>
-                        <input type="email" id="email" name="email" autocomplete="email" placeholder="name@example.com"
-                               class="form-control <?= !empty($errors['email']) ? 'is-invalid' : '' ?>"
-                               value="<?= e($email) ?>" required>
-                        <?php if (!empty($errors['email'])): ?><span class="field-error"><?= e($errors['email']) ?></span><?php endif; ?>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 2. Password -->
-            <section class="reg-section" aria-labelledby="sec-account">
-                <div class="reg-section-head">
-                    <span class="reg-step" aria-hidden="true">2</span>
-                    <div>
-                        <h3 id="sec-account">Secure your account</h3>
-                        <p>Choose a strong password.</p>
-                    </div>
-                </div>
-
-                <div class="reg-note">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    <span>Your username is generated automatically after you submit. You will see it on the next screen, so keep it safe.</span>
-                </div>
-
-                <div class="reg-grid">
-                    <div class="reg-field reg-col-3">
-                        <label class="reg-label" for="password">Password <span class="reg-req" aria-hidden="true">*</span></label>
-                        <div class="password-wrapper">
-                            <input type="password" id="password" name="password" autocomplete="new-password"
-                                   class="form-control <?= !empty($errors['password']) ? 'is-invalid' : '' ?>" required>
-                            <?= $eye_btn('password', 'Show or hide password') ?>
+            <?php if (!empty($errors['general']) || !empty($errors['csrf']) || $field_errors): ?>
+                <div class="ua-alerts ua-rise" style="--i:1">
+                    <?php if (!empty($errors['general'])): ?>
+                        <div class="ua-banner ua-banner-error" role="alert"><?= $svg($ico_alert, '', 20) ?><div><?= e($errors['general']) ?></div></div>
+                    <?php endif; ?>
+                    <?php if (!empty($errors['csrf'])): ?>
+                        <div class="ua-banner ua-banner-error" role="alert"><?= $svg($ico_alert, '', 20) ?><div><?= e($errors['csrf']) ?></div></div>
+                    <?php endif; ?>
+                    <?php if ($field_errors): ?>
+                        <div class="ua-banner ua-banner-info" role="alert">
+                            <?= $svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', '', 20) ?>
+                            <div>Please check the highlighted <?= count($field_errors) === 1 ? 'field' : count($field_errors) . ' fields' ?>. For security, passwords are never kept, so re-enter yours on the Password step.</div>
                         </div>
-                        <?php if (!empty($errors['password'])): ?><span class="field-error"><?= e($errors['password']) ?></span><?php endif; ?>
-
-                        <div class="reg-meter" id="pw_meter" data-level="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-                        <div class="reg-meter-label" id="pw_meter_label" aria-live="polite"></div>
-                    </div>
-
-                    <div class="reg-field reg-col-3">
-                        <label class="reg-label" for="confirm_password">Confirm password <span class="reg-req" aria-hidden="true">*</span></label>
-                        <div class="password-wrapper">
-                            <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password"
-                                   class="form-control <?= !empty($errors['confirm_password']) ? 'is-invalid' : '' ?>" required>
-                            <?= $eye_btn('confirm_password', 'Show or hide confirm password') ?>
-                        </div>
-                        <?php if (!empty($errors['confirm_password'])): ?><span class="field-error"><?= e($errors['confirm_password']) ?></span><?php endif; ?>
-                        <div class="reg-match" id="confirm_hint" aria-live="polite"></div>
-                    </div>
-
-                    <div class="reg-field reg-col-6">
-                        <ul class="reg-rules" id="pw_rules" aria-label="Password requirements">
-                            <li data-rule="length">At least 10 characters</li>
-                            <li data-rule="upper">One uppercase letter</li>
-                            <li data-rule="lower">One lowercase letter</li>
-                            <li data-rule="number">One number</li>
-                        </ul>
-                    </div>
+                    <?php endif; ?>
                 </div>
-            </section>
+            <?php endif; ?>
 
-            <!-- 3. Role -->
-            <section class="reg-section" aria-labelledby="sec-role">
-                <div class="reg-section-head">
-                    <span class="reg-step" aria-hidden="true">3</span>
-                    <div>
-                        <h3 id="sec-role">Your role</h3>
-                        <p>Pick the position you hold in the unit.</p>
-                    </div>
-                </div>
-
-                <div class="reg-roles <?= !empty($errors['role']) ? 'is-invalid' : '' ?>" id="role_group" role="radiogroup" aria-labelledby="sec-role" tabindex="-1">
-                    <?php foreach ($role_cards as $value => [$title, $desc, $icon]): ?>
-                        <label class="reg-role">
-                            <input type="radio" name="role" value="<?= e($value) ?>" <?= $role === $value ? 'checked' : '' ?> required>
-                            <span class="reg-role-body">
-                                <svg class="reg-role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?= $icon ?></svg>
-                                <span class="reg-role-title"><?= e($title) ?></span>
-                                <span class="reg-role-desc"><?= e($desc) ?></span>
-                            </span>
-                        </label>
+            <nav class="ua-steps ua-rise" style="--i:2" aria-label="Registration progress">
+                <ol>
+                    <?php foreach ($step_names as $n => $name): ?>
+                        <li class="ua-step <?= $n < $start_step ? 'is-done' : '' ?> <?= $n === $start_step ? 'is-current' : '' ?> <?= isset($steps_with_err[$n]) ? 'has-error' : '' ?>" data-step="<?= $n ?>">
+                            <button type="button" class="ua-step-btn" <?= $n === $start_step ? 'aria-current="step"' : '' ?> <?= $n > $max_reach && $n !== $start_step ? 'disabled' : '' ?>>
+                                <span class="ua-step-dot">
+                                    <span class="ua-step-num"><?= $n ?></span>
+                                    <?= $svg($ico_check, 'ua-step-check', 16) ?>
+                                </span>
+                                <span class="ua-step-name"><?= e($name) ?></span>
+                            </button>
+                        </li>
                     <?php endforeach; ?>
-                </div>
-                <?php if (!empty($errors['role'])): ?><span class="field-error"><?= e($errors['role']) ?></span><?php endif; ?>
+                </ol>
+            </nav>
 
-                <!-- Role-specific fields (JS shows only the one that applies) -->
-                <div id="group_program" class="reg-group <?= $role === 'class_president' ? 'is-visible' : '' ?>" data-role-group>
-                    <div class="reg-group-box reg-field">
-                        <label class="reg-label" for="program_id">Program <span class="reg-req" aria-hidden="true">*</span></label>
-                        <span class="reg-hint">Required for Class President.</span>
-                        <select id="program_id" name="program_id" class="form-control <?= !empty($errors['program_id']) ? 'is-invalid' : '' ?>">
-                            <option value="">Select a program</option>
-                            <?php foreach ($programs as $prog): ?>
-                                <option value="<?= (int)$prog['id'] ?>" <?= (string)$program_id === (string)$prog['id'] ? 'selected' : '' ?>>
-                                    <?= e($prog['code']) ?> - <?= e($prog['name']) ?>
-                                </option>
+            <form action="<?= BASE_URL ?>/auth/register.php" method="POST" id="registerForm" class="ua-form <?= $start_step === 4 ? 'is-last' : '' ?>" novalidate
+                  data-start-step="<?= (int)$start_step ?>" data-max-reach="<?= (int)$max_reach ?>">
+                <?= csrf_field() ?>
+
+                <!-- Step 1: Personal details -->
+                <section class="ua-pane ua-rise <?= $start_step === 1 ? 'is-active' : '' ?>" style="--i:3" data-pane="1" aria-labelledby="pane-title-1">
+                    <div class="ua-pane-head">
+                        <p class="ua-eyebrow">Step 1 of 4</p>
+                        <h2 class="ua-pane-title" id="pane-title-1" tabindex="-1">Personal details</h2>
+                        <p class="ua-pane-desc">Use your full legal name as it appears on the official roster.</p>
+                    </div>
+                    <div class="ua-grid-2">
+                        <?php
+                        $text_field('first_name', 'First name', ['autocomplete' => 'given-name', 'autofocus' => !$field_errors]);
+                        $text_field('middle_name', 'Middle name', ['required' => false, 'autocomplete' => 'additional-name']);
+                        $text_field('last_name', 'Last name', ['autocomplete' => 'family-name']);
+                        $text_field('student_number', 'Student number', ['inputmode' => 'numeric', 'hint' => 'The Admin uses this to verify you against the roster.']);
+                        $text_field('email', 'Email address', ['type' => 'email', 'autocomplete' => 'email', 'placeholder' => 'name@example.com', 'hint' => 'We will use this for account updates.', 'span2' => true]);
+                        ?>
+                    </div>
+                </section>
+
+                <!-- Step 2: Password -->
+                <section class="ua-pane <?= $start_step === 2 ? 'is-active' : '' ?>" data-pane="2" aria-labelledby="pane-title-2">
+                    <div class="ua-pane-head">
+                        <p class="ua-eyebrow">Step 2 of 4</p>
+                        <h2 class="ua-pane-title" id="pane-title-2" tabindex="-1">Secure your account</h2>
+                        <p class="ua-pane-desc">Choose a strong password you have not used elsewhere.</p>
+                    </div>
+
+                    <div class="ua-note">
+                        <?= $svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>') ?>
+                        <span>Your username is generated automatically after you submit. You will see it on the next screen, so keep it safe.</span>
+                    </div>
+
+                    <?php
+                    $password_field('password', 'Password', true);
+                    $password_field('confirm_password', 'Confirm password', false);
+                    ?>
+
+                    <ul class="ua-rules" id="pwRules" aria-label="Password requirements">
+                        <li data-rule="length">At least 10 characters</li>
+                        <li data-rule="upper">One uppercase letter</li>
+                        <li data-rule="lower">One lowercase letter</li>
+                        <li data-rule="number">One number</li>
+                    </ul>
+                </section>
+
+                <!-- Step 3: Role -->
+                <section class="ua-pane <?= $start_step === 3 ? 'is-active' : '' ?>" data-pane="3" aria-labelledby="pane-title-3">
+                    <div class="ua-pane-head">
+                        <p class="ua-eyebrow">Step 3 of 4</p>
+                        <h2 class="ua-pane-title" id="pane-title-3" tabindex="-1">Your role</h2>
+                        <p class="ua-pane-desc">Pick the position you hold in the unit.</p>
+                    </div>
+
+                    <div class="ua-field <?= !empty($errors['role']) ? 'has-error' : '' ?>" data-field="role">
+                        <div class="ua-roles" role="radiogroup" aria-label="Your role" id="role_group">
+                            <?php foreach ($role_cards as $value => [$title, $desc, $icon]): ?>
+                                <label class="ua-role">
+                                    <input type="radio" name="role" value="<?= e($value) ?>" <?= $role === $value ? 'checked' : '' ?>>
+                                    <span class="ua-role-body">
+                                        <?= $svg($icon, 'ua-role-icon', 22) ?>
+                                        <span class="ua-role-title"><?= e($title) ?></span>
+                                        <span class="ua-role-desc"><?= e($desc) ?></span>
+                                    </span>
+                                </label>
                             <?php endforeach; ?>
-                        </select>
-                        <?php if (!empty($errors['program_id'])): ?><span class="field-error"><?= e($errors['program_id']) ?></span><?php endif; ?>
+                        </div>
+                        <?php $msg_block('role', $errors['role'] ?? ''); ?>
                     </div>
-                </div>
 
-                <div id="group_platoon" class="reg-group <?= $role === 'platoon_leader' ? 'is-visible' : '' ?>" data-role-group>
-                    <div class="reg-group-box reg-field">
-                        <label class="reg-label" for="platoon_option">Company and platoon <span class="reg-req" aria-hidden="true">*</span></label>
-                        <span class="reg-hint">Required for Platoon Leader.</span>
-                        <select id="platoon_option" name="platoon_option" class="form-control <?= !empty($errors['platoon_option']) ? 'is-invalid' : '' ?>">
-                            <option value="">Select a company and platoon</option>
-                            <?php 
-                            $currentCompany = '';
-                            foreach ($platoonsQuery as $row): 
-                                if ($currentCompany !== $row['company_name']) {
-                                    if ($currentCompany !== '') echo '</optgroup>';
-                                    $currentCompany = $row['company_name'];
-                                    echo '<optgroup label="' . e($currentCompany) . '">';
-                                }
-                                $val = $row['company_id'] . ':' . $row['id'];
-                            ?>
-                                <option value="<?= e($val) ?>" <?= $platoon_option === $val ? 'selected' : '' ?>>
-                                    <?= e($row['company_name']) ?> - <?= e($row['platoon_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                            <?php if ($currentCompany !== '') echo '</optgroup>'; ?>
-                        </select>
-                        <?php if (!empty($errors['platoon_option'])): ?><span class="field-error"><?= e($errors['platoon_option']) ?></span><?php endif; ?>
+                    <div class="ua-reveal <?= $role === 'class_president' ? 'is-open' : '' ?>" data-reveal="class_president">
+                        <div class="ua-reveal-inner"><div class="ua-reveal-box">
+                            <div class="ua-field <?= !empty($errors['program_id']) ? 'has-error' : '' ?>" data-field="program_id">
+                                <label class="ua-label" for="program_id"><span>Program <span class="ua-req" aria-hidden="true">*</span></span></label>
+                                <div class="ua-control">
+                                    <select id="program_id" name="program_id" class="ua-input ua-select" aria-describedby="program_id-msg">
+                                        <option value="">Select a program</option>
+                                        <?php foreach ($programs as $prog): ?>
+                                            <option value="<?= (int)$prog['id'] ?>" <?= (string)$program_id === (string)$prog['id'] ? 'selected' : '' ?>>
+                                                <?= e($prog['code']) ?> - <?= e($prog['name']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <span class="ua-hint">Required for Class President.</span>
+                                <?php $msg_block('program_id', $errors['program_id'] ?? ''); ?>
+                            </div>
+                        </div></div>
                     </div>
-                </div>
-            </section>
 
-            <!-- 4. Consent + submit -->
-            <section class="reg-section" aria-labelledby="sec-consent">
-                <div class="reg-section-head">
-                    <span class="reg-step" aria-hidden="true">4</span>
-                    <div>
-                        <h3 id="sec-consent">Consent</h3>
-                        <p>Required to process your registration.</p>
+                    <div class="ua-reveal <?= $role === 'platoon_leader' ? 'is-open' : '' ?>" data-reveal="platoon_leader">
+                        <div class="ua-reveal-inner"><div class="ua-reveal-box">
+                            <div class="ua-field <?= !empty($errors['platoon_option']) ? 'has-error' : '' ?>" data-field="platoon_option">
+                                <label class="ua-label" for="platoon_option"><span>Company and platoon <span class="ua-req" aria-hidden="true">*</span></span></label>
+                                <div class="ua-control">
+                                    <select id="platoon_option" name="platoon_option" class="ua-input ua-select" aria-describedby="platoon_option-msg">
+                                        <option value="">Select a company and platoon</option>
+                                        <?php
+                                        $currentCompany = '';
+                                        foreach ($platoonsQuery as $row):
+                                            if ($currentCompany !== $row['company_name']) {
+                                                if ($currentCompany !== '') echo '</optgroup>';
+                                                $currentCompany = $row['company_name'];
+                                                echo '<optgroup label="' . e($currentCompany) . '">';
+                                            }
+                                            $val = $row['company_id'] . ':' . $row['id'];
+                                        ?>
+                                            <option value="<?= e($val) ?>" <?= $platoon_option === $val ? 'selected' : '' ?>>
+                                                <?= e($row['company_name']) ?> - <?= e($row['platoon_name']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                        <?php if ($currentCompany !== '') echo '</optgroup>'; ?>
+                                    </select>
+                                </div>
+                                <span class="ua-hint">Required for Platoon Leader.</span>
+                                <?php $msg_block('platoon_option', $errors['platoon_option'] ?? ''); ?>
+                            </div>
+                        </div></div>
                     </div>
+                </section>
+
+                <!-- Step 4: Review and consent -->
+                <section class="ua-pane <?= $start_step === 4 ? 'is-active' : '' ?>" data-pane="4" aria-labelledby="pane-title-4">
+                    <div class="ua-pane-head">
+                        <p class="ua-eyebrow">Step 4 of 4</p>
+                        <h2 class="ua-pane-title" id="pane-title-4" tabindex="-1">Review and consent</h2>
+                        <p class="ua-pane-desc">Check your details, then agree to the privacy notice to submit.</p>
+                    </div>
+
+                    <dl class="ua-review" id="uaReview">
+                        <div><dt>Name</dt><dd data-review="name"></dd></div>
+                        <div><dt>Student number</dt><dd data-review="student"></dd></div>
+                        <div><dt>Email</dt><dd data-review="email"></dd></div>
+                        <div><dt>Role</dt><dd data-review="role"></dd></div>
+                        <div hidden><dt>Assignment</dt><dd data-review="assignment"></dd></div>
+                    </dl>
+
+                    <div class="ua-field <?= !empty($errors['consent']) ? 'has-error' : '' ?>" data-field="consent">
+                        <label class="ua-check" for="consent">
+                            <input type="checkbox" id="consent" name="consent" value="1" <?= $consent ? 'checked' : '' ?> aria-describedby="consent-msg">
+                            <span class="ua-check-box"><?= $svg($ico_check, '', 14) ?></span>
+                            <span>I agree to the Data Privacy Notice and consent to the collection and processing of my personal details for ROTC management in compliance with RA 10173. <span class="ua-req">*</span></span>
+                        </label>
+                        <?php $msg_block('consent', $errors['consent'] ?? ''); ?>
+                    </div>
+                </section>
+
+                <div class="ua-actions">
+                    <button type="button" class="ua-btn ua-btn-ghost ua-btn-back" id="regBack" <?= $start_step === 1 ? 'hidden' : '' ?>>
+                        <span class="ua-btn-label"><?= $svg($ico_arrow_l) ?>Back</span>
+                    </button>
+                    <button type="button" class="ua-btn ua-btn-primary ua-btn-next" id="regNext">
+                        <span class="ua-btn-label">Continue <?= $svg($ico_arrow, 'ua-arrow-r') ?></span>
+                    </button>
+                    <button type="submit" class="ua-btn ua-btn-primary ua-btn-submit" id="registerSubmit">
+                        <span class="ua-btn-label">Submit registration</span>
+                        <span class="ua-btn-busy" aria-hidden="true"><span class="ua-spinner"></span><span>Creating your account&hellip;</span></span>
+                    </button>
                 </div>
+            </form>
 
-                <div class="reg-consent <?= !empty($errors['consent']) ? 'is-invalid' : '' ?>">
-                    <input type="checkbox" id="consent" name="consent" value="1" <?= $consent ? 'checked' : '' ?> required>
-                    <label for="consent">
-                        I agree to the Data Privacy Notice and consent to the collection and processing of my personal details for ROTC management in compliance with RA 10173. <span class="reg-req">*</span>
-                    </label>
-                </div>
-                <?php if (!empty($errors['consent'])): ?><span class="field-error"><?= e($errors['consent']) ?></span><?php endif; ?>
+            <p class="ua-foot ua-rise" style="--i:6">Already have an account? <a href="<?= BASE_URL ?>/auth/login.php" data-nav="back">Log in</a></p>
+        </div>
+    </main>
 
-                <div class="reg-actions">
-                    <button type="submit" id="registerSubmit" class="btn btn-primary btn-block reg-submit">Submit Registration</button>
-                </div>
-
-                <p class="reg-login">Already have an account? <a href="<?= BASE_URL ?>/auth/login.php"><strong>Log in</strong></a></p>
-            </section>
-        </form>
-    </div>
-
-    <script src="<?= BASE_URL ?>/assets/js/register.js?v=2"></script>
-    <script src="<?= BASE_URL ?>/assets/js/ui.js"></script>
+    <script src="<?= BASE_URL ?>/assets/js/auth.js?v=1"></script>
 </body>
 </html>
