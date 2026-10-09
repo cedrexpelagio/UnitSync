@@ -120,6 +120,7 @@ if ($active_term && $platoon_id) {
 // 6. Handle Form POST (Save Draft / Mark All Present)
 $form_errors = [];
 $posted_records = [];
+$unmarked_cadets = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -179,8 +180,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($status === 'L') {
             $raw_min = trim((string)($cadet_input['minutes_late'] ?? ''));
             if ($raw_min !== '') {
-                if (!ctype_digit($raw_min) || (int)$raw_min < 0) {
-                    $form_errors[$cid] = 'Minutes late must be a non-negative whole number.';
+                if (!ctype_digit($raw_min) || (int)$raw_min < 0 || (int)$raw_min > 480) {
+                    $form_errors[$cid] = 'Minutes late must be a whole number between 0 and 480.';
                 } else {
                     $minutes_late = (int)$raw_min;
                 }
@@ -313,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $pdo->commit();
-                set_flash('success', 'Attendance for ' . e($selected_session['label']) . ' was successfully submitted to Battalion S1 and Brigade S1.');
+                set_flash('success', 'Attendance for ' . $selected_session['label'] . ' was successfully submitted to Battalion S1 and Brigade S1.');
                 redirect('leader/attendance.php?session=' . $session_id);
             } else {
                 // Draft save or Mark all present
@@ -333,28 +334,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt_update_sub->execute([$sub_id]);
                     $cleared_approvals = true;
 
-
-                        log_audit(
-                            $pdo,
-                            $user['id'],
-                            'edit_submitted_attendance',
-                            'attendance_submission',
-                            (int)$existing_sub['id'],
-                            json_encode([
-                                'session_id'        => $session_id,
-                                'platoon_id'        => (int)$platoon_id,
-                                'cleared_approvals' => true,
-                                'updated_at'        => date('Y-m-d H:i:s')
-                            ])
-                        );
-                    } else {
-                        $stmt_update_sub = $pdo->prepare("
-                            UPDATE attendance_submissions 
-                            SET updated_at = NOW() 
-                            WHERE id = ?
-                        ");
-                        $stmt_update_sub->execute([(int)$existing_sub['id']]);
-                    }
+                    log_audit(
+                        $pdo,
+                        $user['id'],
+                        'edit_submitted_attendance',
+                        'attendance_submission',
+                        (int)$existing_sub['id'],
+                        json_encode([
+                            'session_id'        => $session_id,
+                            'platoon_id'        => (int)$platoon_id,
+                            'cleared_approvals' => true,
+                            'updated_at'        => date('Y-m-d H:i:s')
+                        ])
+                    );
+                } else {
+                    $stmt_update_sub = $pdo->prepare("
+                        UPDATE attendance_submissions 
+                        SET updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    $stmt_update_sub->execute([(int)$existing_sub['id']]);
                 }
 
                 $pdo->commit();
@@ -696,7 +695,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     <!-- Program Column -->
                                     <td>
                                         <span style="font-weight: 500; font-size: 13px;">
-                                            <?= e($cadet['program_code'] ?? '&mdash;') ?>
+                                            <?= !empty($cadet['program_code']) ? e($cadet['program_code']) : '&mdash;' ?>
                                         </span>
                                     </td>
 
