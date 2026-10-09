@@ -226,14 +226,17 @@ CREATE TABLE `officers` (
     `role` ENUM('company_commander', 'platoon_leader') NOT NULL,
     `company_id` INT NOT NULL,
     `platoon_id` INT DEFAULT NULL,
+    `user_id` INT DEFAULT NULL,
     `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     `created_by` INT DEFAULT NULL,
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_officers_user` (`user_id`),
     INDEX `idx_officers_name` (`last_name`, `first_name`),
     INDEX `idx_officers_slot` (`role`, `company_id`, `platoon_id`, `status`),
     CONSTRAINT `fk_officers_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE RESTRICT,
     CONSTRAINT `fk_officers_platoon` FOREIGN KEY (`platoon_id`) REFERENCES `platoons` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_officers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_officers_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

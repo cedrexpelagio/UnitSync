@@ -215,9 +215,10 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="summary-card" style="max-width: 650px; margin-bottom: 24px;">
     <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 8px;">Officers</h3>
     <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">
-        Upload a CSV of Company Commanders and Platoon Leaders. Each company gets one commander and each platoon one leader. You can preview and fix errors before anything is saved.
+        View, edit and deactivate Company Commanders and Platoon Leaders, or upload a CSV to add more. Each company gets one commander and each platoon one leader.
     </p>
-    <a href="<?= BASE_URL ?>/s1/import_officers.php" class="btn btn-primary">Import Officers (CSV)</a>
+    <a href="<?= BASE_URL ?>/s1/officers.php" class="btn btn-primary">View Officer Roster</a>
+    <a href="<?= BASE_URL ?>/s1/import_officers.php" class="btn btn-secondary">Import Officers (CSV)</a>
     <a href="<?= BASE_URL ?>/s1/import_officers.php?template=1" class="btn btn-secondary">Download Template</a>
 </div>
 

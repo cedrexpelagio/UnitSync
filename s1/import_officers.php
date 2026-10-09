@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/officer_accounts.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -162,6 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $saved = 0;
             $skipped = 0;
+            $credentials = [];   // generated logins for Platoon Leaders
+            $account_notes = []; // Platoon Leaders that got no login, with the reason
             foreach ($import['rows'] as $row) {
                 if ($row['status'] !== 'ok') continue;
                 $pKey = off_person_key($row['last_name'], $row['first_name']);
@@ -180,16 +183,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $people[$pKey] = true;
                 $slots[$sKey] = $row['last_name'] . ', ' . $row['first_name'];
                 $saved++;
+
+                // Every Platoon Leader gets a generated login account
+                if ($row['role'] === 'platoon_leader') {
+                    $acc = officer_create_pl_account($pdo, [
+                        'id'          => (int)$pdo->lastInsertId(),
+                        'last_name'   => $row['last_name'],
+                        'first_name'  => $row['first_name'],
+                        'middle_name' => $row['middle_name'],
+                        'company_id'  => $row['company_id'],
+                        'platoon_id'  => $row['platoon_id'],
+                    ], (int)$user['id']);
+                    if ($acc['ok']) $credentials[] = $acc['credential'];
+                    else $account_notes[] = $acc['note'];
+                }
             }
 
-            log_audit($pdo, (int)$user['id'], 'import_officers', 'officers', null, "Imported {$saved} officers from " . $import['file']);
+            log_audit($pdo, (int)$user['id'], 'import_officers', 'officers', null, "Imported {$saved} officers ("
+                . count($credentials) . ' logins generated or linked) from ' . $import['file']);
 
             $pdo->commit();
             unset($_SESSION['officer_import']);
 
+            foreach ($credentials as $c) officer_credentials_stash($c);
+
             $msg = "Import complete: {$saved} officer(s) saved.";
             if ($skipped > 0) $msg .= " {$skipped} skipped because they or their position were already filled.";
+            $generated = count(array_filter($credentials, fn($c) => $c['password'] !== null));
+            $linked = count($credentials) - $generated;
+            if ($generated) $msg .= " {$generated} login account(s) generated: copy the temporary passwords below, they are shown only here.";
+            if ($linked) $msg .= " {$linked} officer(s) linked to a login account that already existed.";
+            $mismatch = array_filter($credentials, fn($c) => !empty($c['registered_name']));
+            if ($mismatch) {
+                set_flash('warning', 'Please check: ' . implode('; ', array_map(
+                    fn($c) => $c['officer'] . ' was linked to ' . $c['username'] . ', which is registered under the name ' . $c['registered_name'],
+                    $mismatch)) . '.');
+            }
             set_flash('success', $msg);
+            if ($account_notes) {
+                set_flash('warning', 'Saved without a login account: ' . implode('; ', $account_notes) . '.');
+            }
+            redirect('s1/officers.php');
         } catch (Throwable $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             set_flash('error', 'Import failed, nothing was saved. ' . $ex->getMessage());
@@ -424,7 +458,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="content-header">
     <h1>Import Officers</h1>
-    <p>Upload a CSV to add Company Commanders and Platoon Leaders. Active officers on file: <strong><?= count($officers) ?></strong></p>
+    <p>Upload a CSV to add Company Commanders and Platoon Leaders. Active officers on file: <strong><?= count($officers) ?></strong>. <a href="<?= BASE_URL ?>/s1/officers.php">View officer roster</a></p>
 </div>
 
 <?php if (!$import): ?>
@@ -436,6 +470,7 @@ require_once __DIR__ . '/../includes/header.php';
            Role is <strong>Company Commander</strong> or <strong>Platoon Leader</strong>.
            A Platoon Leader needs a Platoon (for example <em>1st Platoon</em>); leave Platoon empty for a Company Commander.
            Each company can have one Company Commander and each platoon one Platoon Leader.</p>
+        <p>A login account is generated automatically for every Platoon Leader. The temporary passwords are shown once on the Officer Roster after you save.</p>
         <p><a href="<?= BASE_URL ?>/s1/import_officers.php?template=1">Download CSV template</a></p>
 
         <form action="<?= BASE_URL ?>/s1/import_officers.php" method="POST" enctype="multipart/form-data">

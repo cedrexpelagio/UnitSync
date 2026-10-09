@@ -89,7 +89,7 @@
     // ---------- Live count on the button ----------
     function countFilters() {
         var n = 0;
-        ['gender', 'program', 'company', 'platoon'].forEach(function (name) {
+        ['gender', 'program', 'role', 'company', 'platoon'].forEach(function (name) {
             var el = form.elements[name];
             if (el && el.value !== '') n++;
         });
@@ -143,7 +143,7 @@
 
     // ---------- Clear (inside the panel): reset the fields, do not submit yet ----------
     clearBtn.addEventListener('click', function () {
-        ['gender', 'program', 'company', 'platoon'].forEach(function (name) {
+        ['gender', 'program', 'role', 'company', 'platoon'].forEach(function (name) {
             var el = form.elements[name];
             if (el) { el.value = ''; el.classList.remove('is-set'); }
         });
