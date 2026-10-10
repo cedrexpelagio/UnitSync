@@ -183,10 +183,75 @@
         update();
     }
 
+    /* ---------- Review session: filter marks, search ---------- */
+    function initReview(root) {
+        var rows = qsa('tbody tr[data-mark]', root);
+        var tiles = qsa('[data-s1-filter-mark]', root);
+        var search = qs('[data-s1-marksearch]', root);
+        var empty = qs('[data-s1-markempty]', root);
+        var shownEl = qs('[data-s1-markshown]', root);
+        var active = 'all';
+
+        function apply() {
+            var term = (search ? search.value : '').trim().toLowerCase();
+            var shown = 0;
+            rows.forEach(function (r) {
+                var m = r.getAttribute('data-mark');
+                var okMark = active === 'all' || (active === 'exceptions' ? m !== 'P' : m === active);
+                var okText = !term || (r.getAttribute('data-name') || '').indexOf(term) !== -1;
+                var show = okMark && okText;
+                r.hidden = !show;
+                if (show) shown++;
+            });
+            if (empty) empty.hidden = shown !== 0;
+            if (shownEl) shownEl.textContent = shown;
+            tiles.forEach(function (t) {
+                t.setAttribute('aria-pressed', t.getAttribute('data-s1-filter-mark') === active ? 'true' : 'false');
+            });
+        }
+        tiles.forEach(function (t) {
+            t.addEventListener('click', function () {
+                var v = t.getAttribute('data-s1-filter-mark');
+                active = (active === v && v !== 'all') ? 'all' : v;   // click again to clear
+                apply();
+            });
+        });
+        if (search) search.addEventListener('input', apply);
+        apply();
+    }
+
+    /* ---------- Return remarks: quick reasons + counter ---------- */
+    function initRemarks() {
+        qsa('[data-s1-template]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var ta = qs(btn.getAttribute('data-target'));
+                if (!ta) return;
+                var text = btn.getAttribute('data-s1-template');
+                ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + text : text;
+                if (ta.maxLength > 0 && ta.value.length > ta.maxLength) ta.value = ta.value.slice(0, ta.maxLength);
+                ta.focus();
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+        qsa('[data-s1-counter-for]').forEach(function (c) {
+            var ta = qs(c.getAttribute('data-s1-counter-for'));
+            if (!ta) return;
+            function upd() { c.textContent = ta.value.length + ' / ' + ta.maxLength; }
+            ta.addEventListener('input', upd);
+            upd();
+        });
+    }
+
+
     /* ---------- Boot ---------- */
     document.addEventListener('DOMContentLoaded', function () {
         qsa('[data-s1-filters]').forEach(initFilterForm);
-        qsa('.s1-matrix-wrap').forEach(initMatrix);
+        qsa('.s1-matrix-wrap[id]').forEach(initMatrix);
+        qsa('[data-s1-review]').forEach(initReview);
+        initRemarks();
+        qsa('[data-s1-autosubmit]').forEach(function (el) {
+            el.addEventListener('change', function () { if (el.form) el.form.submit(); });
+        });
 
         // "/" jumps to the search box, like most admin tools
         document.addEventListener('keydown', function (e) {
