@@ -243,12 +243,88 @@
     }
 
 
+
+    /* ---------- CSV import: drop zone and confirm dialogs ---------- */
+    function fmtSize(b) {
+        return b < 1024 ? b + ' B' : (b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB');
+    }
+    function initDrop(zone) {
+        var input = qs('input[type="file"]', zone);
+        var form = zone.closest('form');
+        if (!input || !form) return;
+        var submit = qs('[data-s1-drop-submit]', form);
+        var msg = qs('[data-s1-drop-msg]', form);
+        var fileBox = qs('[data-s1-drop-file]', zone);
+        var fileName = qs('[data-s1-drop-name]', zone);
+        var empty = qs('[data-s1-drop-empty]', zone);
+        var max = parseInt(zone.getAttribute('data-max-bytes'), 10) || 0;
+
+        function say(text) { if (msg) { msg.textContent = text; msg.hidden = !text; } }
+        function reset() {
+            input.value = '';
+            zone.classList.remove('has-file', 'has-error');
+            if (fileBox) fileBox.hidden = true;
+            if (empty) empty.hidden = false;
+            if (submit) submit.disabled = true;
+        }
+        function check() {
+            var f = input.files && input.files[0];
+            if (!f) { reset(); say(''); return; }
+            var err = '';
+            if (!/\.csv$/i.test(f.name)) err = 'Only .csv files are accepted. In Excel use Save As > CSV. In Google Sheets use File > Download > Comma-separated values.';
+            else if (f.size === 0) err = 'That file is empty.';
+            else if (max && f.size > max) err = 'That file is ' + fmtSize(f.size) + ' but the limit is ' + fmtSize(max) + '.';
+            if (err) { reset(); zone.classList.add('has-error'); say(err); return; }
+            say('');
+            zone.classList.remove('has-error');
+            zone.classList.add('has-file');
+            if (fileName) fileName.textContent = f.name + ' (' + fmtSize(f.size) + ')';
+            if (fileBox) fileBox.hidden = false;
+            if (empty) empty.hidden = true;
+            if (submit) submit.disabled = false;
+        }
+
+        input.addEventListener('change', check);
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-over'); });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-over'); });
+        });
+        zone.addEventListener('drop', function (e) {
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length) { try { input.files = files; } catch (err) { /* older browsers: use browse */ } check(); }
+        });
+        var clear = qs('[data-s1-drop-clear]', zone);
+        if (clear) clear.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); reset(); say(''); });
+        form.addEventListener('submit', function () {
+            if (submit) { submit.textContent = 'Reading file...'; setTimeout(function () { submit.disabled = true; }, 0); }
+        });
+        if (submit && !(input.files && input.files.length)) submit.disabled = true;
+    }
+
+    function initConfirm(form) {
+        form.addEventListener('submit', function (e) {
+            if (typeof showConfirm !== 'function' || form.getAttribute('data-confirmed')) return;
+            e.preventDefault();
+            showConfirm({
+                title: form.getAttribute('data-s1-confirm-title') || 'Please confirm',
+                message: form.getAttribute('data-s1-confirm'),
+                confirmText: form.getAttribute('data-s1-confirm-ok') || 'Confirm'
+            }).then(function (ok) {
+                if (ok) { form.setAttribute('data-confirmed', '1'); form.submit(); }
+            });
+        });
+    }
+
     /* ---------- Boot ---------- */
     document.addEventListener('DOMContentLoaded', function () {
         qsa('[data-s1-filters]').forEach(initFilterForm);
         qsa('.s1-matrix-wrap[id]').forEach(initMatrix);
         qsa('[data-s1-review]').forEach(initReview);
         initRemarks();
+        qsa('[data-s1-drop]').forEach(initDrop);
+        qsa('form[data-s1-confirm]').forEach(initConfirm);
         qsa('[data-s1-autosubmit]').forEach(function (el) {
             el.addEventListener('change', function () { if (el.form) el.form.submit(); });
         });
