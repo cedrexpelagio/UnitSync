@@ -28,28 +28,12 @@ function exp_format(): string {
 /**
  * Grouped "Export" dropdown (works without JavaScript, uses <details>).
  * $items: [label => [script_path_under_s1, extra_params, hint]]; current $_GET filters are carried over (page dropped).
- * Styles are emitted once; they move to the new S1 stylesheet in a later step.
+ * Styles live in assets/css/s1_manage.css (the page must load it).
  */
 function exp_menu(array $items): string {
-    static $styled = false;
     $base = $_GET;
     unset($base['page'], $base['format']);
     $html = '';
-    if (!$styled) {
-        $styled = true;
-        $html .= '<style>
-            .exp-menu{position:relative;display:inline-block}
-            .exp-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;font-size:13px;font-weight:600;border:1px solid var(--gray-300);border-radius:var(--radius-default);background:var(--white);color:var(--green-900)}
-            .exp-menu>summary::-webkit-details-marker{display:none}
-            .exp-menu>summary:hover,.exp-menu[open]>summary{background:var(--green-100);border-color:var(--green-700)}
-            .exp-menu-panel{position:absolute;right:0;top:calc(100% + 6px);min-width:250px;background:var(--white);border:1px solid var(--gray-300);border-radius:var(--radius-default);box-shadow:0 6px 18px rgba(0,0,0,.15);z-index:60;overflow:hidden}
-            .exp-menu-panel a{display:block;padding:10px 14px;text-decoration:none;color:var(--green-900);border-bottom:1px solid var(--gray-50)}
-            .exp-menu-panel a:last-child{border-bottom:none}
-            .exp-menu-panel a:hover{background:var(--green-100)}
-            .exp-menu-panel strong{display:block;font-size:13px}
-            .exp-menu-panel small{display:block;font-size:11px;color:var(--gray-700)}
-        </style>';
-    }
     $html .= '<details class="exp-menu"><summary>'
         . '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
         . 'Export <span aria-hidden="true">&#9662;</span></summary><div class="exp-menu-panel">';
