@@ -53,6 +53,9 @@ if ($gender !== '')  { $where[] = 'c.gender = :gender';       $params['gender'] 
 if ($program !== '') { $where[] = 'pr.code = :program';       $params['program'] = $program; }
 if ($company > 0)    { $where[] = 'e.company_id = :company';  $params['company'] = $company; }
 if ($platoon > 0)    { $where[] = 'e.platoon_id = :platoon';  $params['platoon'] = $platoon; }
+// Filters without the status choice, used for the status tab counts
+$where_base = $where;
+$params_base = $params;
 // "Unassigned" is not stored: it means an active cadet with no platoon in the active term
 if ($status === 'unassigned')   { $where[] = "c.status = 'active' AND e.platoon_id IS NULL"; }
 elseif ($status === 'active')   { $where[] = "c.status = 'active' AND e.platoon_id IS NOT NULL"; }
@@ -72,13 +75,24 @@ $stmt = $pdo->prepare("SELECT COUNT(*) $from_sql $where_sql");
 $stmt->execute($params);
 $total = (int)$stmt->fetchColumn();
 
+// Count per status under the other filters (drives the status tabs)
+$stmt = $pdo->prepare("
+    SELECT CASE WHEN c.status = 'active' AND e.platoon_id IS NULL THEN 'unassigned' ELSE c.status END AS st, COUNT(*) AS n
+    $from_sql
+    " . ($where_base ? 'WHERE ' . implode(' AND ', $where_base) : '') . "
+    GROUP BY st
+");
+$stmt->execute($params_base);
+$status_counts = array_map('intval', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
+$status_counts_all = array_sum($status_counts);
+
 $pages = max(1, (int)ceil($total / ROSTER_PAGE_SIZE));
 $page = min($page, $pages);
 $offset = ($page - 1) * ROSTER_PAGE_SIZE;
 $limit = (int)ROSTER_PAGE_SIZE;
 
 $stmt = $pdo->prepare("
-    SELECT c.id, CONCAT(c.last_name, ', ', c.first_name, IF(c.middle_name IS NULL OR c.middle_name = '', '', CONCAT(' ', c.middle_name))) AS full_name, c.gender, c.designation, pr.code AS program,
+    SELECT c.id, c.cadet_code, c.last_name, c.first_name, CONCAT(c.last_name, ', ', c.first_name, IF(c.middle_name IS NULL OR c.middle_name = '', '', CONCAT(' ', c.middle_name))) AS full_name, c.gender, c.designation, pr.code AS program,
            CASE WHEN c.status = 'active' AND e.platoon_id IS NULL THEN 'unassigned' ELSE c.status END AS status,
            co.name AS company_name, p.name AS platoon_name
     $from_sql
@@ -144,6 +158,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/roster.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/s1_manage.css">
 <script>document.documentElement.classList.add('no-js');</script>
 
 <div class="content-header">
@@ -279,7 +294,15 @@ require_once __DIR__ . '/../includes/header.php';
     </span>
 </div>
 
-<div class="table-responsive rt-wrap">
+<nav class="s1-tabs" aria-label="Filter by status">
+    <a class="s1-tab <?= $status === '' ? 'active' : '' ?>" href="<?= e(roster_without($filters, 'status')) ?>">All <b><?= (int)$status_counts_all ?></b></a>
+    <?php foreach ($status_labels as $key => $label): ?>
+        <a class="s1-tab <?= $status === $key ? 'active' : '' ?> <?= $key === 'unassigned' && ($status_counts[$key] ?? 0) > 0 ? 's1-tab-warn' : '' ?>"
+           href="<?= e(roster_url(['status' => $key] + $filters, 1)) ?>"><?= e($label) ?> <b><?= (int)($status_counts[$key] ?? 0) ?></b></a>
+    <?php endforeach; ?>
+</nav>
+
+<div class="table-responsive rt-wrap s1-rt">
     <table class="data-table">
         <thead>
             <tr>
@@ -304,19 +327,26 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             <?php foreach ($cadets as $c): ?>
                 <?php
-                    $badge = 'badge-deactivated';
-                    if ($c['status'] === 'active') $badge = 'badge-approved';
-                    elseif ($c['status'] === 'unassigned') $badge = 'badge-pending';
+                    $initials = mb_strtoupper(mb_substr((string)$c['first_name'], 0, 1) . mb_substr((string)$c['last_name'], 0, 1));
+                    $needs_assign = ($c['status'] === 'unassigned');
                 ?>
-                <tr>
-                    <td class="rt-name"><?= e($c['full_name']) ?></td>
+                <tr class="<?= $needs_assign ? 's1-row-attn' : '' ?>">
+                    <td class="rt-name">
+                        <div class="s1-person">
+                            <span class="s1-avatar" aria-hidden="true"><?= e($initials) ?></span>
+                            <div>
+                                <div class="s1-person-name"><?= e($c['full_name']) ?></div>
+                                <div class="s1-person-sub"><?= e((string)$c['cadet_code']) ?></div>
+                            </div>
+                        </div>
+                    </td>
                     <td><?= e($c['gender']) ?></td>
                     <td><?= e($c['designation']) ?></td>
-                    <td><?= e($c['program']) ?></td>
+                    <td><span class="s1-prog"><?= e($c['program']) ?></span></td>
                     <td><?= $c['company_name'] !== null ? e($c['company_name']) : '<span class="rt-muted">&mdash;</span>' ?></td>
                     <td><?= $c['platoon_name'] !== null ? e($c['platoon_name']) : '<span class="rt-muted">&mdash;</span>' ?></td>
-                    <td><span class="badge <?= $badge ?>"><?= e($status_labels[$c['status']] ?? $c['status']) ?></span></td>
-                    <td><a href="<?= BASE_URL ?>/s1/edit_cadet.php?id=<?= (int)$c['id'] ?>" class="btn btn-sm btn-secondary">Edit</a></td>
+                    <td><span class="s1-status s1-status-<?= e($c['status']) ?>"><i></i><?= e($status_labels[$c['status']] ?? $c['status']) ?></span></td>
+                    <td><a href="<?= BASE_URL ?>/s1/edit_cadet.php?id=<?= (int)$c['id'] ?>" class="btn btn-sm <?= $needs_assign ? 'btn-primary' : 'btn-secondary' ?>"><?= $needs_assign ? 'Assign' : 'Edit' ?></a></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -342,5 +372,6 @@ require_once __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <script src="<?= BASE_URL ?>/assets/js/roster.js" defer></script>
+<script src="<?= BASE_URL ?>/assets/js/s1_manage.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
