@@ -1,22 +1,23 @@
 <?php
-// Admin Registration Requests (Stage 2 - Step A)
+// Admin Registration Requests
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/admin_ui.php';
 
 require_role('admin');
 
 $admin = current_user();
-$tab = $_GET['tab'] ?? 'pending';
+$ad_tab = (($_GET['tab'] ?? 'pending') === 'rejected') ? 'rejected' : 'pending';
 
 // Handle POST actions (Approve / Reject)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
         set_flash('error', 'Invalid security token.');
-        redirect('admin/requests.php?tab=' . urlencode($tab));
+        redirect('admin/requests.php?tab=' . urlencode($ad_tab));
     }
 
     $action = $_POST['action'] ?? '';
@@ -24,9 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Fetch user details
     $stmt = $pdo->prepare("
-        SELECT u.*, ua.program_id, ua.company_id, ua.platoon_id 
-        FROM users u 
-        LEFT JOIN user_assignments ua ON u.id = ua.user_id 
+        SELECT u.*, ua.program_id, ua.company_id, ua.platoon_id
+        FROM users u
+        LEFT JOIN user_assignments ua ON u.id = ua.user_id
         WHERE u.id = ?
     ");
     $stmt->execute([$user_id]);
@@ -34,13 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$targetUser) {
         set_flash('error', 'User not found.');
-        redirect('admin/requests.php?tab=' . urlencode($tab));
+        redirect('admin/requests.php?tab=' . urlencode($ad_tab));
     }
 
     if ($action === 'approve') {
         if ($targetUser['status'] !== 'pending') {
             set_flash('error', 'Only pending requests can be approved.');
-            redirect('admin/requests.php?tab=' . urlencode($tab));
+            redirect('admin/requests.php?tab=' . urlencode($ad_tab));
         }
 
         // Limit rule: Maximum 2 active Battalion S1 and 1 active Brigade S1
@@ -49,14 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $activeBn = (int)$stmt->fetchColumn();
             if ($activeBn >= 2) {
                 set_flash('error', 'Approval failed: The maximum limit of 2 active Battalion S1 accounts has been reached. Deactivate an existing account first.');
-                redirect('admin/requests.php?tab=' . urlencode($tab));
+                redirect('admin/requests.php?tab=' . urlencode($ad_tab));
             }
         } elseif ($targetUser['role'] === 'brigade_s1') {
             $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'brigade_s1' AND status = 'approved'");
             $activeBr = (int)$stmt->fetchColumn();
             if ($activeBr >= 1) {
                 set_flash('error', 'Approval failed: The maximum limit of 1 active Brigade S1 account has been reached. Deactivate the existing account first.');
-                redirect('admin/requests.php?tab=' . urlencode($tab));
+                redirect('admin/requests.php?tab=' . urlencode($ad_tab));
             }
         }
 
@@ -65,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Update user status
             $stmt = $pdo->prepare("
-                UPDATE users 
-                SET status = 'approved', reviewed_by = :admin_id, reviewed_at = NOW(), rejection_reason = NULL 
+                UPDATE users
+                SET status = 'approved', reviewed_by = :admin_id, reviewed_at = NOW(), rejection_reason = NULL
                 WHERE id = :id
             ");
             $stmt->execute([
@@ -105,15 +106,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $reason = trim($_POST['rejection_reason'] ?? '');
         if ($reason === '') {
             set_flash('error', 'A rejection reason is required.');
-            redirect('admin/requests.php?tab=' . urlencode($tab));
+            redirect('admin/requests.php?tab=' . urlencode($ad_tab));
         }
 
         try {
             $pdo->beginTransaction();
 
             $stmt = $pdo->prepare("
-                UPDATE users 
-                SET status = 'rejected', rejection_reason = :reason, reviewed_by = :admin_id, reviewed_at = NOW() 
+                UPDATE users
+                SET status = 'rejected', rejection_reason = :reason, reviewed_by = :admin_id, reviewed_at = NOW()
                 WHERE id = :id
             ");
             $stmt->execute([
@@ -153,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch requests depending on active tab
-if ($tab === 'rejected') {
+if ($ad_tab === 'rejected') {
     $stmt = $pdo->prepare("
         SELECT u.*, ua.program_id, ua.company_id, ua.platoon_id,
                p.code AS prog_code, c.name AS company_name, plt.name AS platoon_name,
@@ -185,200 +186,206 @@ if ($tab === 'rejected') {
     $requests = $stmt->fetchAll();
 }
 
+// Counts for the tabs and S1 seat usage
+$pending_total  = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
+$rejected_total = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE status = 'rejected'")->fetchColumn();
+$bn_active = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'battalion_s1' AND status = 'approved'")->fetchColumn();
+$br_active = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'brigade_s1' AND status = 'approved'")->fetchColumn();
+
 // Function to check potential conflicts
 function get_conflict_warning(PDO $pdo, array $req): ?string {
     if ($req['role'] === 'class_president' && !empty($req['program_id'])) {
         $stmt = $pdo->prepare("
-            SELECT u.username, u.first_name, u.last_name 
-            FROM user_assignments ua 
-            JOIN users u ON ua.user_id = u.id 
+            SELECT u.username, u.first_name, u.last_name
+            FROM user_assignments ua
+            JOIN users u ON ua.user_id = u.id
             WHERE ua.program_id = ? AND u.role = 'class_president' AND u.status = 'approved' AND u.id != ?
             LIMIT 1
         ");
         $stmt->execute([$req['program_id'], $req['id']]);
         $existing = $stmt->fetch();
         if ($existing) {
-            return "Warning: Program {$req['prog_code']} already has an active Class President ({$existing['username']} - {$existing['first_name']} {$existing['last_name']}).";
+            return "Program {$req['prog_code']} already has an active Class President ({$existing['username']} - {$existing['first_name']} {$existing['last_name']}).";
         }
     } elseif ($req['role'] === 'platoon_leader' && !empty($req['platoon_id'])) {
         $stmt = $pdo->prepare("
-            SELECT u.username, u.first_name, u.last_name 
-            FROM user_assignments ua 
-            JOIN users u ON ua.user_id = u.id 
+            SELECT u.username, u.first_name, u.last_name
+            FROM user_assignments ua
+            JOIN users u ON ua.user_id = u.id
             WHERE ua.platoon_id = ? AND u.role = 'platoon_leader' AND u.status = 'approved' AND u.id != ?
             LIMIT 1
         ");
         $stmt->execute([$req['platoon_id'], $req['id']]);
         $existing = $stmt->fetch();
         if ($existing) {
-            return "Warning: Platoon already has an active Leader ({$existing['username']} - {$existing['first_name']} {$existing['last_name']}).";
+            return "This platoon already has an active Leader ({$existing['username']} - {$existing['first_name']} {$existing['last_name']}).";
         }
     }
     return null;
 }
 
+$ad_name = static function (array $r): string {
+    return trim(implode(' ', array_filter([$r['first_name'], $r['middle_name'] ?? '', $r['last_name']])));
+};
+
 $page_title = 'Registration Requests';
 require_once __DIR__ . '/../includes/header.php';
+ad_css();
 ?>
+<div class="ad">
+    <?php
+    ad_head('Registration requests', 'Check each officer against the roster, then approve or reject. Nobody can sign in until you do.', '', 'requests');
+    ad_guide('requests', 'How to review a request', [
+        ['Verify the identity', 'Compare the name and student number with your official unit roster.'],
+        ['Read the warnings', 'A yellow note means the role or seat is already taken. Resolve that before approving.'],
+        ['Approve or reject', 'Approving emails the officer their username. Rejecting needs a reason, which the officer sees when they try to sign in.'],
+    ]);
+    ?>
 
-<div class="content-header">
-    <h1>Registration Requests</h1>
-    <p>Review and verify officer registrations before permitting access to the system</p>
-</div>
+    <nav class="ad-linktabs ad-rise" style="--i:2" aria-label="Request lists">
+        <a href="<?= BASE_URL ?>/admin/requests.php?tab=pending" class="<?= $ad_tab === 'pending' ? 'is-on' : '' ?>" <?= $ad_tab === 'pending' ? 'aria-current="page"' : '' ?>>
+            Pending <b class="<?= $pending_total > 0 ? 'is-alert' : '' ?>"><?= $pending_total ?></b>
+        </a>
+        <a href="<?= BASE_URL ?>/admin/requests.php?tab=rejected" class="<?= $ad_tab === 'rejected' ? 'is-on' : '' ?>" <?= $ad_tab === 'rejected' ? 'aria-current="page"' : '' ?>>
+            Rejected history <b><?= $rejected_total ?></b>
+        </a>
+    </nav>
 
-<div class="tabs-nav">
-    <a href="<?= BASE_URL ?>/admin/requests.php?tab=pending" class="tab-link <?= $tab === 'pending' ? 'active' : '' ?>">Pending Requests</a>
-    <a href="<?= BASE_URL ?>/admin/requests.php?tab=rejected" class="tab-link <?= $tab === 'rejected' ? 'active' : '' ?>">Rejected History</a>
-</div>
+    <?php if ($ad_tab === 'rejected'): ?>
 
-<?php if ($tab === 'rejected'): ?>
-    <?php if (empty($requests)): ?>
-        <p style="padding: 24px; color: var(--gray-700);">No rejected registrations found.</p>
+        <?php if (empty($requests)): ?>
+            <div class="ad-empty ad-rise" style="--i:3">
+                <?= ad_icon('user-x', 36) ?>
+                <strong>No rejected registrations</strong>
+                <p>Requests you reject will be kept here so you can see the reason and who made the call.</p>
+            </div>
+        <?php else: ?>
+            <div class="ad-cards" data-filter>
+                <?php if (count($requests) > 4): ?>
+                    <div class="ad-toolbar" style="grid-column: 1 / -1; margin-bottom: 0;">
+                        <div class="ad-search">
+                            <?= ad_icon('search', 16) ?>
+                            <input type="search" class="ad-input" data-live-filter data-focus-key placeholder="Filter by name, username or reason" aria-label="Filter rejected requests">
+                            <kbd>/</kbd>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <?php foreach ($requests as $i => $req): $name = $ad_name($req); ?>
+                    <article class="ad-card ad-person is-off ad-rise" style="--i:<?= min($i, 8) + 3 ?>" data-item data-search="<?= e(strtolower($name . ' ' . $req['username'] . ' ' . $req['student_number'] . ' ' . $req['rejection_reason'])) ?>">
+                        <div class="ad-person-top">
+                            <span class="ad-avatar is-bad"><?= e(ad_initials($req['first_name'], $req['last_name'])) ?></span>
+                            <div class="ad-person-id">
+                                <div class="ad-person-name"><?= e($name) ?></div>
+                                <div class="ad-person-user"><?= e($req['username']) ?></div>
+                            </div>
+                            <span class="badge badge-rejected">Rejected</span>
+                        </div>
+                        <div class="ad-note ad-note-bad"><?= ad_icon('info', 16) ?><div><strong>Reason:</strong> <?= e($req['rejection_reason'] ?: 'No reason recorded.') ?></div></div>
+                        <dl class="ad-kv">
+                            <div><dt>Role</dt><dd><?= e(format_role_name($req['role'])) ?></dd></div>
+                            <div><dt>Student no.</dt><dd><?= e($req['student_number']) ?></dd></div>
+                            <div><dt>Reviewed by</dt><dd><?= e($req['reviewer_username'] ?? 'Admin') ?></dd></div>
+                            <div><dt>Rejected</dt><dd><?= $req['reviewed_at'] ? e(date('M j, Y g:i A', strtotime($req['reviewed_at']))) : '—' ?></dd></div>
+                        </dl>
+                    </article>
+                <?php endforeach; ?>
+                <p class="ad-muted" data-filter-empty hidden style="grid-column: 1 / -1;">No rejected requests match your filter.</p>
+            </div>
+        <?php endif; ?>
+
     <?php else: ?>
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Full Name</th>
-                        <th>Student No.</th>
-                        <th>Role</th>
-                        <th>Rejection Reason</th>
-                        <th>Reviewed By</th>
-                        <th>Date Rejected</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($requests as $req): ?>
-                        <tr>
-                            <td><strong><?= e($req['username']) ?></strong></td>
-                            <td><?= e($req['last_name'] . ', ' . $req['first_name'] . ' ' . $req['middle_name']) ?></td>
-                            <td><?= e($req['student_number']) ?></td>
-                            <td><span class="badge badge-rejected"><?= e(format_role_name($req['role'])) ?></span></td>
-                            <td style="color: var(--error); font-weight: 500;"><?= e($req['rejection_reason']) ?></td>
-                            <td><?= e($req['reviewer_username'] ?? 'Admin') ?></td>
-                            <td><?= e($req['reviewed_at']) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+
+        <?php if (empty($requests)): ?>
+            <div class="ad-empty ad-rise" style="--i:3">
+                <?= ad_icon('check-circle', 36) ?>
+                <strong>You are all caught up</strong>
+                <p>New registrations will show up here for verification. You can also check who is already in the system.</p>
+                <a href="<?= BASE_URL ?>/admin/users.php" class="btn btn-secondary btn-sm">Go to users <?= ad_icon('arrow', 14) ?></a>
+            </div>
+        <?php else: ?>
+            <div class="ad-cards" data-filter>
+                <?php if (count($requests) > 4): ?>
+                    <div class="ad-toolbar" style="grid-column: 1 / -1; margin-bottom: 0;">
+                        <div class="ad-search">
+                            <?= ad_icon('search', 16) ?>
+                            <input type="search" class="ad-input" data-live-filter data-focus-key placeholder="Filter by name, username or student no." aria-label="Filter pending requests">
+                            <kbd>/</kbd>
+                        </div>
+                        <span class="ad-count"><span data-filter-count><?= count($requests) ?></span> of <?= count($requests) ?> shown</span>
+                    </div>
+                <?php endif; ?>
+
+                <?php foreach ($requests as $i => $req):
+                    $name = $ad_name($req);
+                    $assignment = ad_assignment($req);
+                    $conflict = get_conflict_warning($pdo, $req);
+
+                    // Seat check: approving would be refused when the S1 limit is full
+                    $seat = null;
+                    if ($req['role'] === 'battalion_s1') $seat = ['Battalion S1', $bn_active, 2];
+                    if ($req['role'] === 'brigade_s1')   $seat = ['Brigade S1', $br_active, 1];
+                    $seat_full = $seat && $seat[1] >= $seat[2];
+                ?>
+                    <article class="ad-card ad-person ad-rise" style="--i:<?= min($i, 8) + 3 ?>" data-item data-search="<?= e(strtolower($name . ' ' . $req['username'] . ' ' . $req['student_number'] . ' ' . $req['email'])) ?>">
+                        <div class="ad-person-top">
+                            <span class="ad-avatar is-warn"><?= e(ad_initials($req['first_name'], $req['last_name'])) ?></span>
+                            <div class="ad-person-id">
+                                <div class="ad-person-name"><?= e($name) ?></div>
+                                <div class="ad-person-user"><?= e($req['username']) ?></div>
+                            </div>
+                            <span class="badge badge-pending">Pending</span>
+                        </div>
+
+                        <dl class="ad-kv">
+                            <div><dt>Role</dt><dd><?= e(format_role_name($req['role'])) ?></dd></div>
+                            <div><dt>Assignment</dt><dd><?= e($assignment) ?></dd></div>
+                            <div><dt>Student no.</dt><dd><?= e($req['student_number']) ?></dd></div>
+                            <div><dt>Submitted</dt><dd title="<?= e(date('M j, Y g:i A', strtotime($req['created_at']))) ?>"><?= e(ad_time_ago($req['created_at'])) ?></dd></div>
+                            <div class="is-wide"><dt>Email</dt><dd><a href="mailto:<?= e($req['email']) ?>"><?= e($req['email']) ?></a></dd></div>
+                        </dl>
+
+                        <?php if ($conflict): ?>
+                            <div class="ad-note ad-note-warn"><?= ad_icon('alert', 16) ?><div><?= e($conflict) ?> Approving will give this unit two leaders; deactivate the current one first if that is not intended.</div></div>
+                        <?php endif; ?>
+                        <?php if ($seat_full): ?>
+                            <div class="ad-note ad-note-bad"><?= ad_icon('ban', 16) ?><div><?= e($seat[0]) ?> seats are full (<?= (int)$seat[1] ?> of <?= (int)$seat[2] ?>). <a href="<?= BASE_URL ?>/admin/users.php?search=<?= urlencode($req['role']) ?>">Deactivate an account</a> to free a seat, then approve.</div></div>
+                        <?php elseif ($seat): ?>
+                            <div class="ad-note ad-note-info"><?= ad_icon('info', 16) ?><div><?= e($seat[0]) ?> seats in use: <?= (int)$seat[1] ?> of <?= (int)$seat[2] ?>.</div></div>
+                        <?php endif; ?>
+
+                        <div class="ad-person-foot">
+                            <form action="<?= BASE_URL ?>/admin/requests.php" method="POST">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="approve">
+                                <input type="hidden" name="user_id" value="<?= (int)$req['id'] ?>">
+                                <button type="submit" class="btn btn-success btn-sm" <?= $seat_full ? 'disabled title="No seat free"' : '' ?>
+                                        data-ad-confirm data-title="Approve registration"
+                                        data-message="<?= e('Approve <strong>' . e($name) . '</strong> (' . e($req['username']) . ') as ' . e(format_role_name($req['role'])) . '? They will be emailed their username and can sign in right away.') ?>"
+                                        data-confirm-text="Approve account">
+                                    <?= ad_icon('check', 14) ?> Approve
+                                </button>
+                            </form>
+                            <form action="<?= BASE_URL ?>/admin/requests.php" method="POST">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="reject">
+                                <input type="hidden" name="user_id" value="<?= (int)$req['id'] ?>">
+                                <input type="hidden" name="rejection_reason" data-reason value="">
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        data-ad-prompt data-target="[data-reason]" data-danger="1" data-title="Reject registration"
+                                        data-message="<?= e('Why is <strong>' . e($name) . '</strong> being rejected? The officer will see this reason when they try to sign in.') ?>"
+                                        data-placeholder="e.g. Student number not found on the unit roster"
+                                        data-confirm-text="Reject request">
+                                    <?= ad_icon('x', 14) ?> Reject
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+                <p class="ad-muted" data-filter-empty hidden style="grid-column: 1 / -1;">No pending requests match your filter.</p>
+            </div>
+        <?php endif; ?>
+
     <?php endif; ?>
-
-<?php else: ?>
-    <?php if (empty($requests)): ?>
-        <div style="background-color: var(--gray-50); border: 1px dashed var(--gray-300); border-radius: var(--radius-default); padding: 40px; text-align: center; color: var(--gray-700);">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gold-500); margin-bottom: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <p><strong>No pending registration requests</strong></p>
-            <p style="font-size: 13px;">New user registrations will appear here for verification.</p>
-        </div>
-    <?php else: ?>
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Full Name</th>
-                        <th>Student No.</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Assignment</th>
-                        <th>Submitted At</th>
-                        <th style="min-width: 170px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($requests as $req): 
-                        $assignment = '—';
-                        if ($req['role'] === 'class_president') {
-                            $assignment = $req['prog_code'] ? 'Program: ' . $req['prog_code'] : 'Unassigned';
-                        } elseif ($req['role'] === 'platoon_leader') {
-                            $assignment = ($req['company_name'] ? $req['company_name'] : '') . ' - ' . ($req['platoon_name'] ? $req['platoon_name'] : '');
-                        }
-                        $conflict = get_conflict_warning($pdo, $req);
-                    ?>
-                        <tr>
-                            <td><strong><?= e($req['username']) ?></strong></td>
-                            <td><?= e($req['last_name'] . ', ' . $req['first_name'] . ' ' . $req['middle_name']) ?></td>
-                            <td><?= e($req['student_number']) ?></td>
-                            <td><?= e($req['email']) ?></td>
-                            <td><span class="badge badge-pending"><?= e(format_role_name($req['role'])) ?></span></td>
-                            <td>
-                                <?= e($assignment) ?>
-                                <?php if ($conflict): ?>
-                                    <br><small style="color: var(--warning); display: block; margin-top: 2px;">⚠️ <?= e($conflict) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= e(date('M d, Y h:i A', strtotime($req['created_at']))) ?></td>
-                            <td>
-                                <div style="display: flex; gap: 6px; align-items: center;">
-                                    <!-- Approve Form -->
-                                    <form class="approve-form" action="<?= BASE_URL ?>/admin/requests.php" method="POST">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="approve">
-                                        <input type="hidden" name="user_id" value="<?= (int)$req['id'] ?>">
-                                        <button type="submit" class="btn btn-success btn-sm approve-btn" data-username="<?= e($req['username']) ?>">Approve</button>
-                                    </form>
-
-                                    <!-- Reject Form -->
-                                    <form class="reject-form" action="<?= BASE_URL ?>/admin/requests.php" method="POST">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="action" value="reject">
-                                        <input type="hidden" name="user_id" value="<?= (int)$req['id'] ?>">
-                                        <input type="hidden" name="rejection_reason" class="reject-reason-input" value="">
-                                        <button type="button" class="btn btn-danger btn-sm reject-btn" data-username="<?= e($req['username']) ?>">Reject</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-<?php endif; ?>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Approve confirmation modal
-    document.querySelectorAll('.approve-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const form = btn.closest('form');
-            const username = btn.dataset.username;
-            const ok = await showConfirm({
-                title: 'Approve Registration',
-                message: `Are you sure you want to approve registration for officer <strong>${username}</strong>?`,
-                confirmText: 'Approve Account',
-                cancelText: 'Cancel',
-                isDanger: false
-            });
-            if (ok) form.submit();
-        });
-    });
-
-    // Reject reason prompt modal
-    document.querySelectorAll('.reject-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const form = btn.closest('form');
-            const reasonInput = form.querySelector('.reject-reason-input');
-            const username = btn.dataset.username;
-
-            const reason = await showPromptModal({
-                title: 'Reject Registration',
-                message: `Please provide a rejection reason for <strong>${username}</strong>. This explanation will be shown to the user upon attempting login:`,
-                placeholder: 'e.g. Identity not found on official unit roster / incorrect student ID',
-                confirmText: 'Confirm Rejection',
-                isDanger: true
-            });
-
-            if (reason) {
-                reasonInput.value = reason;
-                form.submit();
-            }
-        });
-    });
-});
-</script>
-
+</div>
+<?php ad_js(); ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

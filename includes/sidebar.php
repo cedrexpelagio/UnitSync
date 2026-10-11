@@ -36,6 +36,7 @@ if ($role === 'admin') {
     $nav = [
         ['Dashboard',            '/admin/dashboard.php',  ['dashboard.php'],  'dashboard'],
         ['Registration Requests','/admin/requests.php',   ['requests.php'],   'user-plus'],
+        ['Users',                '/admin/users.php',      ['users.php'],      'users'],
         ['Training Sessions',    '/admin/sessions.php',   ['sessions.php'],   'calendar'],
         ['Terms & Semesters',    '/admin/terms.php',      ['terms.php'],      'layers'],
         ['Audit Log',            '/admin/audit_log.php',  ['audit_log.php'],  'file-text'],

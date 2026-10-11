@@ -1,11 +1,12 @@
 <?php
-// Admin Terms & Semesters Management (Stage PL-1, Step A - Plain HTML & PHP)
+// Admin Terms & Semesters Management
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/admin_ui.php';
 
 require_role('admin');
 
@@ -211,156 +212,139 @@ $stmt = $pdo->query("
 ");
 $terms = $stmt->fetchAll();
 
+// "Week 3 of 16", "Starts in 12 days", "Ended"
+$today = new DateTime('today');
+$timeline = static function (array $t) use ($today): array {
+    $s = new DateTime($t['start_date']);
+    $en = new DateTime($t['end_date']);
+    $total_days = max(1, (int)$s->diff($en)->days + 1);
+    $weeks = (int)ceil($total_days / 7);
+    if ($today < $s) {
+        $n = (int)$today->diff($s)->days;
+        return ['Starts in ' . ad_plural($n, 'day'), 0, $weeks];
+    }
+    if ($today > $en) {
+        return ['Ended', 100, $weeks];
+    }
+    $elapsed = (int)$s->diff($today)->days + 1;
+    return ['Week ' . (int)ceil($elapsed / 7) . ' of ' . $weeks, (int)round($elapsed / $total_days * 100), $weeks];
+};
+
+// Show the form when editing, after a validation error, or when there is nothing yet
+$form_open = $editing_term || !empty($errors) || empty($terms);
+$is_edit = (bool)$editing_term;
+$val = static function (string $key, ?string $edit_key = null) use ($editing_term) {
+    if (isset($_POST[$key])) return $_POST[$key];
+    return $editing_term[$edit_key ?? $key] ?? '';
+};
+
 $page_title = 'Terms & Semesters';
 require_once __DIR__ . '/../includes/header.php';
+ad_css();
 ?>
+<div class="ad">
+    <?php
+    $actions = '<button type="button" class="btn btn-primary btn-sm ad-js-only" data-toggle-target="termForm">' . ad_icon('plus', 14) . ' New term</button>'
+        . '<a href="' . BASE_URL . '/admin/sessions.php" class="btn btn-secondary btn-sm">Training sessions ' . ad_icon('arrow', 14) . '</a>';
+    ad_head('Terms & semesters', 'A term is one semester of training. Only one term is active at a time, and attendance is recorded against it.', $actions, 'terms');
+    ad_guide('terms', 'How terms work', [
+        ['Create the term', 'Give it a clear name like "1st Semester AY 2026-2027" and set its start and end dates.'],
+        ['Make it active', 'The active term is the one officers see. Switching term changes it for everyone straight away.'],
+        ['Add its sessions', 'Open a term\'s Sessions button to build the weekly training calendar.'],
+    ]);
+    ?>
 
-<div class="content-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-    <div>
-        <h1>Terms & Semesters</h1>
-        <p>Manage academic terms and designate the single active term for ROTC training and attendance.</p>
-    </div>
-    <div>
-        <a href="<?= BASE_URL ?>/admin/sessions.php" class="btn btn-secondary btn-sm">&rarr; Go to Training Sessions</a>
-    </div>
-</div>
+    <section id="termForm" class="ad-panel ad-collapse <?= $form_open ? 'is-open' : '' ?> ad-rise" style="--i:2" aria-labelledby="termFormTitle">
+        <h2 class="ad-panel-title" id="termFormTitle"><?= $is_edit ? 'Edit term: ' . e($editing_term['name']) : 'Create a new term' ?></h2>
+        <p class="ad-panel-sub"><?= $is_edit ? 'Changing dates does not move sessions that already exist.' : 'You can set it active now or later from its card.' ?></p>
 
-<?php if ($editing_term): ?>
-    <!-- Edit Term Form Card -->
-    <div class="card">
-        <h2 class="card-title">Edit Term: <?= e($editing_term['name']) ?></h2>
-        <form method="POST" action="<?= BASE_URL ?>/admin/terms.php?edit=<?= (int)$editing_term['id'] ?>">
+        <form method="POST" action="<?= BASE_URL ?>/admin/terms.php<?= $is_edit ? '?edit=' . (int)$editing_term['id'] : '' ?>" data-validate>
             <?= csrf_field() ?>
-            <input type="hidden" name="action" value="update_term">
-            <input type="hidden" name="term_id" value="<?= (int)$editing_term['id'] ?>">
+            <input type="hidden" name="action" value="<?= $is_edit ? 'update_term' : 'create_term' ?>">
+            <?php if ($is_edit): ?><input type="hidden" name="term_id" value="<?= (int)$editing_term['id'] ?>"><?php endif; ?>
 
-            <div class="form-group">
-                <label for="edit_name">Term Name</label>
-                <input type="text" id="edit_name" name="name" class="form-control <?= isset($errors['name']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['name'] ?? $editing_term['name']) ?>" required>
-                <?php if (isset($errors['name'])): ?><span class="field-error"><?= e($errors['name']) ?></span><?php endif; ?>
+            <?= ad_field('name', 'Term name',
+                '<input type="text" id="name" name="name" class="ad-input" required data-msg="Give the term a name." value="' . e($val('name')) . '" placeholder="e.g. 1st Semester AY 2026-2027" aria-describedby="name-err">',
+                $errors['name'] ?? '', 'The semester and academic year.') ?>
+
+            <div class="ad-form-grid">
+                <?= ad_field('start_date', 'Start date',
+                    '<input type="date" id="start_date" name="start_date" class="ad-input" required data-msg="Choose when the term starts." value="' . e($val('start_date')) . '" aria-describedby="start_date-err">',
+                    $errors['start_date'] ?? '') ?>
+                <?= ad_field('end_date', 'End date',
+                    '<input type="date" id="end_date" name="end_date" class="ad-input" required data-after="start_date" data-msg="Choose when the term ends." data-after-msg="The end date can\'t be before the start date." value="' . e($val('end_date')) . '" aria-describedby="end_date-err">',
+                    $errors['end_date'] ?? '') ?>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="edit_start_date">Start Date</label>
-                    <input type="date" id="edit_start_date" name="start_date" class="form-control <?= isset($errors['start_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['start_date'] ?? $editing_term['start_date']) ?>" required>
-                    <?php if (isset($errors['start_date'])): ?><span class="field-error"><?= e($errors['start_date']) ?></span><?php endif; ?>
-                </div>
+            <?php if (!$is_edit): ?>
+                <label class="ad-check" for="make_active">
+                    <input type="checkbox" id="make_active" name="make_active" value="1" <?= !empty($_POST['make_active']) ? 'checked' : '' ?>>
+                    <span>Make this the active term now. The current active term will be switched off.</span>
+                </label>
+            <?php endif; ?>
 
-                <div class="form-group">
-                    <label for="edit_end_date">End Date</label>
-                    <input type="date" id="edit_end_date" name="end_date" class="form-control <?= isset($errors['end_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['end_date'] ?? $editing_term['end_date']) ?>" required>
-                    <?php if (isset($errors['end_date'])): ?><span class="field-error"><?= e($errors['end_date']) ?></span><?php endif; ?>
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 8px; margin-top: 16px;">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-                <a href="<?= BASE_URL ?>/admin/terms.php" class="btn btn-secondary">Cancel</a>
+            <div class="ad-actions">
+                <button type="submit" class="btn btn-primary"><?= $is_edit ? 'Save changes' : 'Create term' ?></button>
+                <?php if ($is_edit): ?>
+                    <a href="<?= BASE_URL ?>/admin/terms.php" class="btn btn-secondary">Cancel</a>
+                <?php elseif ($terms): ?>
+                    <button type="button" class="btn btn-secondary ad-js-only" data-toggle-target="termForm">Cancel</button>
+                <?php endif; ?>
             </div>
         </form>
-    </div>
-<?php else: ?>
-    <!-- Create Term Form Card -->
-    <div class="card">
-        <h2 class="card-title">Create New Academic Term</h2>
-        <form method="POST" action="<?= BASE_URL ?>/admin/terms.php">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="create_term">
+    </section>
 
-            <div class="form-group">
-                <label for="name">Term Name</label>
-                <input type="text" id="name" name="name" class="form-control <?= isset($errors['name']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['name'] ?? '') ?>" placeholder="e.g. 1st Semester AY 2026-2027" required>
-                <span class="field-hint">Specify the academic semester and academic year.</span>
-                <?php if (isset($errors['name'])): ?><span class="field-error"><?= e($errors['name']) ?></span><?php endif; ?>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="start_date">Start Date</label>
-                    <input type="date" id="start_date" name="start_date" class="form-control <?= isset($errors['start_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['start_date'] ?? '') ?>" required>
-                    <?php if (isset($errors['start_date'])): ?><span class="field-error"><?= e($errors['start_date']) ?></span><?php endif; ?>
-                </div>
-
-                <div class="form-group">
-                    <label for="end_date">End Date</label>
-                    <input type="date" id="end_date" name="end_date" class="form-control <?= isset($errors['end_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['end_date'] ?? '') ?>" required>
-                    <?php if (isset($errors['end_date'])): ?><span class="field-error"><?= e($errors['end_date']) ?></span><?php endif; ?>
-                </div>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="make_active" name="make_active" value="1" <?= !empty($_POST['make_active']) ? 'checked' : '' ?>>
-                <label for="make_active">Set as the active term immediately (deactivates currently active term)</label>
-            </div>
-
-            <div>
-                <button type="submit" class="btn btn-primary">Create Term</button>
-            </div>
-        </form>
-    </div>
-<?php endif; ?>
-
-<!-- Terms List Table Card -->
-<div class="card">
-    <h2 class="card-title">Academic Terms List</h2>
     <?php if (empty($terms)): ?>
-        <div class="empty-state">
-            <p>No academic terms have been created yet. Please create one above to begin.</p>
+        <div class="ad-empty ad-rise" style="--i:3">
+            <?= ad_icon('layers', 36) ?>
+            <strong>No terms yet</strong>
+            <p>Create your first term above. After that, head to Training sessions to generate its calendar.</p>
         </div>
     <?php else: ?>
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Term Name</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Status</th>
-                        <th>Sessions Count</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($terms as $t): ?>
-                        <tr>
-                            <td><?= (int)$t['id'] ?></td>
-                            <td>
-                                <strong><?= e($t['name']) ?></strong>
-                            </td>
-                            <td><?= e($t['start_date']) ?></td>
-                            <td><?= e($t['end_date']) ?></td>
-                            <td>
-                                <?php if ($t['is_active']): ?>
-                                    <span class="badge badge-active">Active</span>
-                                <?php else: ?>
-                                    <span class="badge badge-inactive">Inactive</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <strong><?= (int)$t['session_count'] ?></strong> sessions
-                            </td>
-                            <td>
-                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                    <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$t['id'] ?>" class="btn btn-secondary btn-sm">Sessions</a>
-                                    <a href="<?= BASE_URL ?>/admin/terms.php?edit=<?= (int)$t['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
-                                    <?php if (!$t['is_active']): ?>
-                                        <form method="POST" action="<?= BASE_URL ?>/admin/terms.php" class="activate-term-form" data-term-name="<?= e($t['name']) ?>" style="display:inline;">
-                                            <?= csrf_field() ?>
-                                            <input type="hidden" name="action" value="activate_term">
-                                            <input type="hidden" name="term_id" value="<?= (int)$t['id'] ?>">
-                                            <button type="submit" class="btn btn-success btn-sm">Set Active</button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="ad-cards">
+            <?php foreach ($terms as $i => $t):
+                [$when, $pct, $weeks] = $timeline($t);
+                $active = (int)$t['is_active'] === 1;
+            ?>
+                <article class="ad-card ad-term <?= $active ? 'is-active' : '' ?> ad-rise" style="--i:<?= min($i, 8) + 3 ?>">
+                    <div class="ad-term-top">
+                        <div>
+                            <div class="ad-term-name"><?= e($t['name']) ?></div>
+                            <div class="ad-term-dates"><?= e(date('M j, Y', strtotime($t['start_date']))) ?> &ndash; <?= e(date('M j, Y', strtotime($t['end_date']))) ?></div>
+                        </div>
+                        <span class="badge <?= $active ? 'badge-active' : 'badge-inactive' ?>"><?= $active ? 'Active' : 'Inactive' ?></span>
+                    </div>
+
+                    <div>
+                        <div class="ad-progress-row"><span><?= e($when) ?></span><span><?= $pct ?>%</span></div>
+                        <div class="ad-progress"><span style="--p: <?= $pct ?>%"></span></div>
+                    </div>
+
+                    <div class="ad-term-stats">
+                        <div><strong><?= (int)$t['session_count'] ?></strong>sessions</div>
+                        <div><strong><?= $weeks ?></strong>weeks</div>
+                    </div>
+
+                    <?php if ((int)$t['session_count'] === 0): ?>
+                        <div class="ad-note ad-note-info"><?= ad_icon('info', 16) ?><div>No sessions yet. Open Sessions to generate the weekly calendar.</div></div>
+                    <?php endif; ?>
+
+                    <div class="ad-term-foot">
+                        <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$t['id'] ?>" class="btn btn-primary btn-sm"><?= ad_icon('calendar', 14) ?> Sessions</a>
+                        <a href="<?= BASE_URL ?>/admin/terms.php?edit=<?= (int)$t['id'] ?>" class="btn btn-secondary btn-sm"><?= ad_icon('edit', 14) ?> Edit</a>
+                        <?php if (!$active): ?>
+                            <form method="POST" action="<?= BASE_URL ?>/admin/terms.php" class="activate-term-form" data-term-name="<?= e($t['name']) ?>">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="activate_term">
+                                <input type="hidden" name="term_id" value="<?= (int)$t['id'] ?>">
+                                <button type="submit" class="btn btn-success btn-sm"><?= ad_icon('check', 14) ?> Set active</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </article>
+            <?php endforeach; ?>
         </div>
     <?php endif; ?>
 </div>
-
+<?php ad_js(); ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

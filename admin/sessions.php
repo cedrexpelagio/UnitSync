@@ -1,11 +1,12 @@
 <?php
-// Admin Training Sessions Management (Stage PL-1, Step A - Plain HTML & PHP)
+// Admin Training Sessions Management
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/admin_ui.php';
 
 require_role('admin');
 
@@ -392,292 +393,351 @@ if ($term) {
 
 // Group sessions by date: one calendar row per training day, with its sessions inside
 $days = [];
+$totals = ['scheduled' => 0, 'held' => 0, 'cancelled' => 0];
 foreach ($sessions as $s) {
     $days[$s['session_date']][] = $s;
+    if (isset($totals[$s['status']])) $totals[$s['status']]++;
+}
+
+// ... and by month, so a long term is easy to scan
+$months = [];
+foreach ($days as $date => $list) {
+    $months[substr($date, 0, 7)][$date] = $list;
 }
 
 // Small form that changes the status of every session on one training day
 function day_status_form(int $term_id, string $date, string $to, string $text, string $btn_class, string $title, ?string $confirm_label = null): string {
     $cls = $confirm_label !== null ? ' class="cancel-session-form" data-session-label="' . e($confirm_label) . '"' : '';
-    return '<form method="POST" action="' . BASE_URL . '/admin/sessions.php"' . $cls . ' style="display:inline;">'
+    return '<form method="POST" action="' . BASE_URL . '/admin/sessions.php"' . $cls . '>'
         . csrf_field()
         . '<input type="hidden" name="action" value="set_day_status">'
         . '<input type="hidden" name="term_id" value="' . $term_id . '">'
         . '<input type="hidden" name="session_date" value="' . e($date) . '">'
         . '<input type="hidden" name="status" value="' . e($to) . '">'
-        . '<button type="submit" class="btn ' . e($btn_class) . ' btn-sm" title="' . e($title) . '">' . e($text) . '</button>'
+        . '<button type="submit" class="btn ' . e($btn_class) . ' btn-sm" data-tip="' . e($title) . '">' . e($text) . '</button>'
         . '</form>';
 }
 
+$status_names = ['scheduled' => 'Scheduled', 'held' => 'Held', 'cancelled' => 'Cancelled'];
+$dot = ['scheduled' => 's', 'held' => 'h', 'cancelled' => 'c'];
+$today = date('Y-m-d');
+$this_month = date('Y-m');
+
+// Next training day that still has something scheduled
+$next_day = null;
+foreach ($days as $date => $list) {
+    if ($date >= $today) {
+        foreach ($list as $s) {
+            if ($s['status'] === 'scheduled') { $next_day = $date; break 2; }
+        }
+    }
+}
+
+// Day-level chip counts
+$chip_counts = ['scheduled' => 0, 'held' => 0, 'cancelled' => 0];
+foreach ($days as $list) {
+    $present = array_unique(array_column($list, 'status'));
+    foreach ($present as $st) if (isset($chip_counts[$st])) $chip_counts[$st]++;
+}
+
+// Which tab opens first
+$has_post_error = $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($errors);
+$posted_action = $_POST['action'] ?? '';
+if ($has_post_error && $posted_action === 'bulk_generate') {
+    $open_tab = 'generate';
+} elseif ($has_post_error && $posted_action === 'create_session') {
+    $open_tab = 'add';
+} elseif (empty($sessions)) {
+    $open_tab = 'generate';
+} else {
+    $open_tab = 'calendar';
+}
+
+$non_cancelled = $totals['held'] + $totals['scheduled'];
+$held_pct = $non_cancelled > 0 ? (int)round($totals['held'] / $non_cancelled * 100) : 0;
+
 $page_title = 'Training Sessions';
 require_once __DIR__ . '/../includes/header.php';
-?>
+ad_css();
 
-<div class="content-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-    <div>
-        <h1>Training Sessions Management</h1>
-        <p>Manage the ROTC training calendar, schedule weekly sessions, and track training status.</p>
-    </div>
-    <div>
-        <a href="<?= BASE_URL ?>/admin/terms.php" class="btn btn-secondary btn-sm">&larr; Manage Academic Terms</a>
-    </div>
-</div>
-
-<!-- Term Selector Card -->
-<div class="card" style="padding: 16px 24px; margin-bottom: 20px;">
-    <form method="GET" action="<?= BASE_URL ?>/admin/sessions.php" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <label for="term_select" style="font-weight: 600; color: var(--green-900);">Select Academic Term:</label>
-        <select id="term_select" name="term_id" class="form-control" style="width: auto; min-width: 280px;" onchange="this.form.submit()">
-            <?php if (empty($all_terms)): ?>
-                <option value="">-- No terms available --</option>
-            <?php else: ?>
-                <?php foreach ($all_terms as $t): ?>
-                    <option value="<?= (int)$t['id'] ?>" <?= ($term && (int)$term['id'] === (int)$t['id']) ? 'selected' : '' ?>>
-                        <?= e($t['name']) ?><?= $t['is_active'] ? ' (ACTIVE TERM)' : '' ?>
-                    </option>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </select>
-        <noscript><button type="submit" class="btn btn-secondary btn-sm">Switch Term</button></noscript>
-    </form>
-</div>
-
-<?php if (!$term): ?>
-    <div class="banner banner-warning">
-        <svg class="banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <div>
-            <strong>Notice:</strong> There are no terms configured yet.
-            Please <a href="<?= BASE_URL ?>/admin/terms.php">create and activate a term</a> before managing training sessions.
-        </div>
+// ---- Calendar markup (rendered once, placed below) ----
+ob_start();
+if (empty($sessions)): ?>
+    <div class="ad-empty">
+        <?= ad_icon('calendar', 36) ?>
+        <strong>No training sessions yet</strong>
+        <p>The quickest way to start is to generate a full term of weekly sessions in one go.</p>
+        <?php if (!$editing_session): ?><a href="#generate" class="btn btn-primary btn-sm" data-goto-tab="generate"><?= ad_icon('zap', 14) ?> Generate weekly sessions</a><?php endif; ?>
     </div>
 <?php else: ?>
+    <div data-filter>
+        <div class="ad-toolbar">
+            <div class="ad-chipbar" role="group" aria-label="Filter days">
+                <button type="button" class="ad-chip" data-chip="all" aria-pressed="true">All days <b><?= count($days) ?></b></button>
+                <button type="button" class="ad-chip" data-chip="scheduled" aria-pressed="false">Has scheduled <b><?= $chip_counts['scheduled'] ?></b></button>
+                <button type="button" class="ad-chip" data-chip="held" aria-pressed="false">Has held <b><?= $chip_counts['held'] ?></b></button>
+                <button type="button" class="ad-chip" data-chip="cancelled" aria-pressed="false">Has cancelled <b><?= $chip_counts['cancelled'] ?></b></button>
+            </div>
+            <div class="ad-legend ad-count" aria-label="Legend">
+                <span><i class="s"></i>Scheduled</span><span><i class="h"></i>Held</span><span><i class="c"></i>Cancelled</span>
+            </div>
+        </div>
 
-    <div class="banner banner-info" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div>
-            <strong>Current Term:</strong> <?= e($term['name']) ?>
-            <span style="margin: 0 8px; color: var(--gray-300);">|</span>
-            <strong>Calendar:</strong> <?= e($term['start_date']) ?> to <?= e($term['end_date']) ?>
-            <span style="margin: 0 8px; color: var(--gray-300);">|</span>
-            <?php if ($term['is_active']): ?>
-                <span class="badge badge-active">Active Term</span>
-            <?php else: ?>
-                <span class="badge badge-inactive">Inactive Term</span>
-            <?php endif; ?>
+        <?php foreach ($months as $ym => $month_days):
+            $month_sessions = array_sum(array_map('count', $month_days));
+            $open_month = ($ym >= $this_month) || $ym === array_key_last($months);
+        ?>
+            <details class="ad-month" data-section <?= $open_month ? 'open' : '' ?>>
+                <summary>
+                    <?= e(date('F Y', strtotime($ym . '-01'))) ?>
+                    <small><?= e(ad_plural(count($month_days), 'day')) ?> &middot; <?= e(ad_plural($month_sessions, 'session')) ?></small>
+                    <?= ad_icon('chevron', 16, 'ad-caret') ?>
+                </summary>
+
+                <?php foreach ($month_days as $date => $day_sessions):
+                    $n = count($day_sessions);
+                    $by = ['scheduled' => 0, 'held' => 0, 'cancelled' => 0];
+                    foreach ($day_sessions as $ds) $by[$ds['status']]++;
+                    $tags = implode(' ', array_keys(array_filter($by)));
+                    $ts = strtotime($date);
+                    $classes = [];
+                    if ($date === $today) $classes[] = 'is-today';
+                    if ($date === $next_day) $classes[] = 'is-next';
+                    if ($by['cancelled'] === $n) $classes[] = 'is-cancelled';
+                    $overdue = $date < $today && $by['scheduled'] > 0;
+                ?>
+                    <div class="ad-day <?= e(implode(' ', $classes)) ?>" data-item data-tags="<?= e($tags) ?>"
+                         data-search="<?= e(strtolower($date . ' ' . date('l F j', $ts) . ' ' . implode(' ', array_column($day_sessions, 'label')))) ?>">
+                        <div class="ad-day-date"><b><?= (int)date('j', $ts) ?></b><span><?= e(date('D', $ts)) ?></span></div>
+
+                        <div class="ad-day-main">
+                            <div class="ad-chips">
+                                <?php foreach ($day_sessions as $s): ?>
+                                    <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>&amp;edit=<?= (int)$s['id'] ?>"
+                                       class="ad-sess <?= $s['status'] === 'cancelled' ? 'is-cancelled' : '' ?>"
+                                       data-tip="Edit &ldquo;<?= e($s['label']) ?>&rdquo; (<?= e($status_names[$s['status']]) ?>)"><i class="ad-dot <?= $dot[$s['status']] ?>"></i><?= e($s['label']) ?></a>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="ad-day-meta">
+                                <span><?= e(date('l, M j', $ts)) ?></span>
+                                <?php if ($date === $today): ?><span class="badge badge-draft">Today</span><?php endif; ?>
+                                <?php if ($date === $next_day && $date !== $today): ?><span class="badge badge-scheduled">Next training day</span><?php endif; ?>
+                                <?php if ($overdue): ?><span class="badge badge-pending">Past: mark held or cancel</span><?php endif; ?>
+                                <?php if ($by['held'] === $n): ?><span class="badge badge-held">Held</span>
+                                <?php elseif ($by['cancelled'] === $n): ?><span class="badge badge-cancelled">Cancelled</span>
+                                <?php elseif ($by['scheduled'] === $n): ?><span class="badge badge-scheduled">Scheduled</span>
+                                <?php else:
+                                    $parts = [];
+                                    foreach ($by as $k => $cnt) if ($cnt > 0) $parts[] = $cnt . ' ' . strtolower($status_names[$k]);
+                                ?><span><?= e(implode(', ', $parts)) ?></span><?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="ad-day-actions">
+                            <?php if ($by['scheduled'] > 0): ?>
+                                <?= day_status_form((int)$term['id'], $date, 'held', 'Mark held', 'btn-success', 'Mark every scheduled session on this date as Held') ?>
+                            <?php endif; ?>
+                            <?php if ($by['cancelled'] < $n): ?>
+                                <?= day_status_form((int)$term['id'], $date, 'cancelled', 'Cancel day', 'btn-outline-danger', 'Cancel every session on this date', 'all sessions on ' . $date) ?>
+                            <?php endif; ?>
+                            <?php if ($by['cancelled'] > 0): ?>
+                                <?= day_status_form((int)$term['id'], $date, 'scheduled', 'Re-schedule', 'btn-secondary', 'Put cancelled sessions on this date back to Scheduled') ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </details>
+        <?php endforeach; ?>
+
+        <div class="ad-empty" data-filter-empty hidden>
+            <?= ad_icon('search', 36) ?>
+            <strong>No days match this filter</strong>
+            <p>Pick "All days" to see the whole calendar again.</p>
         </div>
-        <div>
-            <a href="<?= BASE_URL ?>/admin/terms.php?edit=<?= (int)$term['id'] ?>" class="btn btn-secondary btn-sm" style="background: white;">Edit Term Dates</a>
-        </div>
+
+        <p class="ad-muted" style="margin-top: 14px; font-size: 12.5px;">
+            Mark held, Cancel day and Re-schedule apply to every session on that date. Click a session name to edit it or change just that one.
+        </p>
     </div>
+<?php endif;
+$calendar_html = ob_get_clean();
+?>
+<div class="ad">
+    <?php
+    ad_head(
+        'Training sessions',
+        'Build the training calendar for a term, then mark each day as it happens.',
+        '<a href="' . BASE_URL . '/admin/terms.php" class="btn btn-secondary btn-sm">' . ad_icon('arrow-left', 14) . ' Terms</a>',
+        'sessions'
+    );
+    ad_guide('sessions', 'From empty term to a working calendar', [
+        ['Pick the term', 'Sessions belong to a term. Choose which one you are working on below.'],
+        ['Generate the weeks', 'Use Generate weekly: give the first date, how many weeks, and the session names for each day. A preview shows exactly what will be created.'],
+        ['Run the calendar', 'After a training day, mark it held. If it is called off, cancel it. Click any session to edit just that one.'],
+        ['Add one-offs', 'Use Add one session for a makeup drill or special formation.'],
+    ]);
+    ?>
 
-    <?php if ($editing_session): ?>
-        <!-- Edit Single Session Form Card -->
-        <div class="card">
-            <h2 class="card-title">Edit Session: <?= e($editing_session['label']) ?></h2>
-            <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?edit=<?= (int)$editing_session['id'] ?>">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="update_session">
-                <input type="hidden" name="session_id" value="<?= (int)$editing_session['id'] ?>">
-                <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
+    <!-- Term picker -->
+    <form method="GET" action="<?= BASE_URL ?>/admin/sessions.php" class="ad-card ad-termbar ad-rise" style="--i:2" data-autosubmit>
+        <label for="term_select">Term</label>
+        <select id="term_select" name="term_id" class="ad-input">
+            <?php if (empty($all_terms)): ?>
+                <option value="">No terms available</option>
+            <?php else: foreach ($all_terms as $t): ?>
+                <option value="<?= (int)$t['id'] ?>" <?= ($term && (int)$term['id'] === (int)$t['id']) ? 'selected' : '' ?>>
+                    <?= e($t['name']) ?><?= $t['is_active'] ? ' (active)' : '' ?>
+                </option>
+            <?php endforeach; endif; ?>
+        </select>
+        <?php if ($term): ?>
+            <span class="ad-term-dates"><?= ad_icon('calendar', 15) ?> <?= e(date('M j, Y', strtotime($term['start_date']))) ?> &ndash; <?= e(date('M j, Y', strtotime($term['end_date']))) ?></span>
+            <span class="badge <?= $term['is_active'] ? 'badge-active' : 'badge-inactive' ?>"><?= $term['is_active'] ? 'Active term' : 'Inactive term' ?></span>
+            <a href="<?= BASE_URL ?>/admin/terms.php?edit=<?= (int)$term['id'] ?>" class="btn btn-ghost btn-sm ad-spacer">Edit term dates</a>
+        <?php endif; ?>
+        <noscript><button type="submit" class="btn btn-secondary btn-sm">Switch term</button></noscript>
+    </form>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="edit_label">Session Label</label>
-                        <input type="text" id="edit_label" name="label" class="form-control <?= isset($errors['label']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['label'] ?? $editing_session['label']) ?>" placeholder="e.g. Session 1, Field Training" required>
-                        <?php if (isset($errors['label'])): ?><span class="field-error"><?= e($errors['label']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="edit_session_date">Session Date</label>
-                        <input type="date" id="edit_session_date" name="session_date" class="form-control <?= isset($errors['session_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['session_date'] ?? $editing_session['session_date']) ?>" required>
-                        <?php if (isset($errors['session_date'])): ?><span class="field-error"><?= e($errors['session_date']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="edit_status">Session Status</label>
-                        <select id="edit_status" name="status" class="form-control">
-                            <option value="scheduled" <?= ($editing_session['status'] === 'scheduled') ? 'selected' : '' ?>>Scheduled</option>
-                            <option value="held" <?= ($editing_session['status'] === 'held') ? 'selected' : '' ?>>Held</option>
-                            <option value="cancelled" <?= ($editing_session['status'] === 'cancelled') ? 'selected' : '' ?>>Cancelled</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <button type="submit" class="btn btn-primary">Save Session Changes</button>
-                    <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
+    <?php if (!$term): ?>
+        <div class="ad-empty ad-rise" style="--i:3">
+            <?= ad_icon('layers', 36) ?>
+            <strong>Create a term first</strong>
+            <p>Training sessions live inside a term. Create and activate one, then come back to build its calendar.</p>
+            <a href="<?= BASE_URL ?>/admin/terms.php" class="btn btn-primary btn-sm">Go to terms <?= ad_icon('arrow', 14) ?></a>
         </div>
     <?php else: ?>
-        <!-- Two Column Forms on Desktop: Generator and Single Add -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px;">
-            <!-- Bulk Generate N Weekly Sessions Card -->
-            <div class="card" style="margin-bottom: 0;">
-                <h2 class="card-title">Generate Weekly Training Sessions</h2>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">Generate weekly training days. Each training day gets the sessions you list below, named exactly as you type them.</p>
-                <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>">
+
+        <!-- Overview -->
+        <section class="ad-card ad-overview ad-rise" style="--i:3" aria-label="Term overview">
+            <div class="ad-overview-top">
+                <div class="ad-ov"><strong data-count="<?= count($days) ?>"><?= count($days) ?></strong><span>training days</span></div>
+                <div class="ad-ov"><strong data-count="<?= count($sessions) ?>"><?= count($sessions) ?></strong><span>sessions</span></div>
+                <div class="ad-ov"><strong data-count="<?= $totals['scheduled'] ?>"><?= $totals['scheduled'] ?></strong><span>scheduled</span></div>
+                <div class="ad-ov is-held"><strong data-count="<?= $totals['held'] ?>"><?= $totals['held'] ?></strong><span>held</span></div>
+                <div class="ad-ov is-cancelled"><strong data-count="<?= $totals['cancelled'] ?>"><?= $totals['cancelled'] ?></strong><span>cancelled</span></div>
+            </div>
+            <?php if ($sessions): ?>
+                <div class="ad-progress-row"><span>Term progress (held of non-cancelled sessions)</span><strong><?= $held_pct ?>%</strong></div>
+                <div class="ad-progress"><span style="--p: <?= $held_pct ?>%"></span></div>
+            <?php endif; ?>
+            <?php if ($next_day): ?>
+                <div class="ad-next"><?= ad_icon('clock', 16) ?><span><strong>Next training day:</strong> <?= e(date('l, M j', strtotime($next_day))) ?> (<?= e(ad_plural(count(array_filter($days[$next_day], static fn($s) => $s['status'] === 'scheduled')), 'session')) ?> scheduled)</span></div>
+            <?php endif; ?>
+        </section>
+
+        <?php if ($editing_session): ?>
+            <!-- Edit one session -->
+            <section class="ad-panel ad-rise" style="--i:4" aria-labelledby="editTitle">
+                <h2 class="ad-panel-title" id="editTitle">Edit session: <?= e($editing_session['label']) ?></h2>
+                <p class="ad-panel-sub">Changes apply to this one session only.</p>
+                <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?edit=<?= (int)$editing_session['id'] ?>" data-validate>
                     <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="bulk_generate">
+                    <input type="hidden" name="action" value="update_session">
+                    <input type="hidden" name="session_id" value="<?= (int)$editing_session['id'] ?>">
                     <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
 
-                    <div class="form-group">
-                        <label for="gen_start_date">First Training Date</label>
-                        <input type="date" id="gen_start_date" name="start_date" class="form-control <?= isset($errors['start_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['start_date'] ?? $term['start_date']) ?>" required>
-                        <span class="field-hint">e.g. The first training Saturday of the semester.</span>
-                        <?php if (isset($errors['start_date'])): ?><span class="field-error"><?= e($errors['start_date']) ?></span><?php endif; ?>
+                    <div class="ad-form-grid">
+                        <?= ad_field('edit_label', 'Session name',
+                            '<input type="text" id="edit_label" name="label" class="ad-input" required data-msg="Give the session a name." value="' . e($_POST['label'] ?? $editing_session['label']) . '" placeholder="e.g. Session 1, Field Training" aria-describedby="edit_label-err">',
+                            $errors['label'] ?? '') ?>
+                        <?= ad_field('edit_session_date', 'Date',
+                            '<input type="date" id="edit_session_date" name="session_date" class="ad-input" required data-msg="Choose a date." value="' . e($_POST['session_date'] ?? $editing_session['session_date']) . '" aria-describedby="edit_session_date-err">',
+                            $errors['session_date'] ?? '') ?>
+                        <?= ad_field('edit_status', 'Status',
+                            '<select id="edit_status" name="status" class="ad-input">'
+                            . implode('', array_map(static fn($k, $v) => '<option value="' . $k . '"' . ((($_POST['status'] ?? $editing_session['status']) === $k) ? ' selected' : '') . '>' . $v . '</option>', array_keys($status_names), $status_names))
+                            . '</select>', '', '', false) ?>
                     </div>
-
-                    <div class="form-group">
-                        <label for="gen_count">Number of Weeks</label>
-                        <input type="number" id="gen_count" name="count" min="1" max="30" class="form-control <?= isset($errors['count']) ? 'is-invalid' : '' ?>" value="<?= (int)($_POST['count'] ?? 15) ?>" required>
-                        <span class="field-hint">How many weekly training days to create. Default: 15.</span>
-                        <?php if (isset($errors['count'])): ?><span class="field-error"><?= e($errors['count']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="gen_names">Sessions on each training day</label>
-                        <input type="text" id="gen_names" name="names" class="form-control <?= isset($errors['names']) ? 'is-invalid' : '' ?>" value="<?= e(is_string($_POST['names'] ?? null) ? $_POST['names'] : '') ?>" maxlength="500" placeholder="e.g. Session 1, Session 2, Session 3" required>
-                        <span class="field-hint">Type the sessions for one training day, separated by commas. Each one is created on every training date exactly as typed (up to 10 per day).</span>
-                        <?php if (isset($errors['names'])): ?><span class="field-error"><?= e($errors['names']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div style="margin-top: 16px;">
-                        <button type="submit" class="btn btn-primary">Generate Weekly Sessions</button>
+                    <div class="ad-actions">
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                        <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
-            </div>
+            </section>
 
-            <!-- Add Single Session Card -->
-            <div class="card" style="margin-bottom: 0;">
-                <h2 class="card-title">Add Single Session</h2>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">Add a standalone makeup drill, special formation, or individual session.</p>
-                <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="create_session">
-                    <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
+            <h2 class="ad-section-title">Calendar</h2>
+            <?= $calendar_html ?>
 
-                    <div class="form-group">
-                        <label for="single_label">Session Label</label>
-                        <input type="text" id="single_label" name="label" class="form-control <?= isset($errors['label']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['label'] ?? '') ?>" placeholder="e.g. Session 16, Orientation" required>
-                        <?php if (isset($errors['label'])): ?><span class="field-error"><?= e($errors['label']) ?></span><?php endif; ?>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="single_date">Date</label>
-                            <input type="date" id="single_date" name="session_date" class="form-control <?= isset($errors['session_date']) ? 'is-invalid' : '' ?>" value="<?= e($_POST['session_date'] ?? '') ?>" required>
-                            <?php if (isset($errors['session_date'])): ?><span class="field-error"><?= e($errors['session_date']) ?></span><?php endif; ?>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="single_status">Status</label>
-                            <select id="single_status" name="status" class="form-control">
-                                <option value="scheduled">Scheduled</option>
-                                <option value="held">Held</option>
-                                <option value="cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 16px;">
-                        <button type="submit" class="btn btn-secondary">Add Session</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    <?php endif; ?>
-
-    <!-- Sessions List Table Card -->
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-            <h2 class="card-title" style="margin-bottom: 0;">Training Sessions Calendar (<?= count($days) ?> training days, <?= count($sessions) ?> sessions)</h2>
-            <span style="font-size: 13px; color: var(--gray-700);">Term: <strong><?= e($term['name']) ?></strong></span>
-        </div>
-
-        <?php if (empty($sessions)): ?>
-            <div class="empty-state">
-                <p>No training sessions scheduled for this term yet. Use the weekly generator or add form above.</p>
-            </div>
         <?php else: ?>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">#</th>
-                            <th>Date</th>
-                            <th>Day</th>
-                            <th>Sessions</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php $day_no = 0; ?>
-                        <?php foreach ($days as $date => $day_sessions): ?>
-                            <?php
-                                $day_no++;
-                                $n = count($day_sessions);
-                                $by = ['scheduled' => 0, 'held' => 0, 'cancelled' => 0];
-                                foreach ($day_sessions as $ds) {
-                                    $by[$ds['status']]++;
-                                }
-                                $status_names = ['scheduled' => 'Scheduled', 'held' => 'Held', 'cancelled' => 'Cancelled'];
-                            ?>
-                            <tr class="<?= $by['cancelled'] === $n ? 'table-row-cancelled' : '' ?>">
-                                <td><?= $day_no ?></td>
-                                <td><strong><?= e($date) ?></strong></td>
-                                <td><?= date('l', strtotime($date)) ?></td>
-                                <td>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                        <?php foreach ($day_sessions as $s): ?>
-                                            <a href="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>&edit=<?= (int)$s['id'] ?>"
-                                               class="badge badge-<?= e($s['status']) ?>"
-                                               style="text-decoration: none;<?= $s['status'] === 'cancelled' ? ' text-decoration: line-through;' : '' ?>"
-                                               title="Edit <?= e($s['label']) ?> (<?= e($status_names[$s['status']]) ?>)"><?= e($s['label']) ?></a>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <?php if ($by['held'] === $n): ?>
-                                        <span class="badge badge-held">Held</span>
-                                    <?php elseif ($by['cancelled'] === $n): ?>
-                                        <span class="badge badge-cancelled">Cancelled</span>
-                                    <?php elseif ($by['scheduled'] === $n): ?>
-                                        <span class="badge badge-scheduled">Scheduled</span>
-                                    <?php else: ?>
-                                        <?php
-                                            $parts = [];
-                                            foreach ($by as $k => $cnt) {
-                                                if ($cnt > 0) $parts[] = $cnt . ' ' . $status_names[$k];
-                                            }
-                                        ?>
-                                        <span style="font-size: 13px;"><?= e(implode(', ', $parts)) ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                        <?php if ($by['cancelled'] < $n): ?>
-                                            <?= day_status_form((int)$term['id'], $date, 'cancelled', 'Cancel', 'btn-danger', 'Cancel every session on this date', 'all sessions on ' . $date) ?>
-                                        <?php endif; ?>
-                                        <?php if ($by['cancelled'] > 0): ?>
-                                            <?= day_status_form((int)$term['id'], $date, 'scheduled', 'Re-schedule', 'btn-secondary', 'Put cancelled sessions on this date back to Scheduled') ?>
-                                        <?php endif; ?>
-                                        <?php if ($by['scheduled'] > 0): ?>
-                                            <?= day_status_form((int)$term['id'], $date, 'held', 'Mark Held', 'btn-success', 'Mark every scheduled session on this date as Held') ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+
+            <div data-tabs data-active="<?= e($open_tab) ?>">
+                <div class="ad-tablist ad-rise" style="--i:4" role="tablist" aria-label="Training session tools">
+                    <button type="button" role="tab" class="ad-tab" data-tab="calendar" aria-selected="false"><?= ad_icon('calendar', 16) ?> Calendar <b><?= count($days) ?></b></button>
+                    <button type="button" role="tab" class="ad-tab" data-tab="generate" aria-selected="false"><?= ad_icon('zap', 16) ?> Generate weekly</button>
+                    <button type="button" role="tab" class="ad-tab" data-tab="add" aria-selected="false"><?= ad_icon('plus', 16) ?> Add one session</button>
+                </div>
+
+                <section data-panel="calendar" id="calendar" role="tabpanel"><?= $calendar_html ?></section>
+
+                <section data-panel="generate" id="generate" role="tabpanel">
+                    <div class="ad-panel ad-two">
+                        <div>
+                            <h2 class="ad-panel-title">Generate weekly training sessions</h2>
+                            <p class="ad-panel-sub">Creates one training day per week, each with the sessions you list. Sessions that already exist on a date are skipped, so it is safe to run twice.</p>
+                        </div>
+                        <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>" data-validate data-gen>
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="bulk_generate">
+                            <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
+
+                            <div class="ad-form-grid">
+                                <?= ad_field('start_date', 'First training date',
+                                    '<input type="date" id="start_date" name="start_date" class="ad-input" required data-msg="Choose the first training date." value="' . e($_POST['start_date'] ?? $term['start_date']) . '" aria-describedby="start_date-err">',
+                                    $errors['start_date'] ?? '', 'For example, the first training Saturday.') ?>
+                                <?= ad_field('count', 'Number of weeks',
+                                    '<input type="number" id="count" name="count" min="1" max="30" class="ad-input" required data-msg="Enter how many weeks." data-range-msg="Enter a number from 1 to 30." value="' . (int)($_POST['count'] ?? 15) . '" aria-describedby="count-err">',
+                                    $errors['count'] ?? '', 'One training day per week. Default 15.') ?>
+                            </div>
+
+                            <?= ad_field('names', 'Sessions on each training day',
+                                '<input type="text" id="names" name="names" class="ad-input" required maxlength="500" data-msg="Type at least one session name." value="' . e(is_string($_POST['names'] ?? null) ? $_POST['names'] : '') . '" placeholder="e.g. Session 1, Session 2, Session 3" aria-describedby="names-err">',
+                                $errors['names'] ?? '', 'Separate names with commas. Each is created on every training date exactly as typed (up to 10 per day).') ?>
+
+                            <div class="ad-preview" data-gen-preview aria-live="polite">
+                                <?= ad_icon('info', 18) ?>
+                                <div>
+                                    <div data-gen-text>Fill in the date, the number of weeks and at least one session name to see what will be created.</div>
+                                    <div class="ad-chips" data-gen-chips></div>
+                                </div>
+                            </div>
+
+                            <div class="ad-actions"><button type="submit" class="btn btn-primary"><?= ad_icon('zap', 14) ?> Generate sessions</button></div>
+                        </form>
+                    </div>
+                </section>
+
+                <section data-panel="add" id="add" role="tabpanel">
+                    <div class="ad-panel ad-two">
+                        <div>
+                            <h2 class="ad-panel-title">Add one session</h2>
+                            <p class="ad-panel-sub">For a makeup drill, special formation or any one-off. It appears in the calendar on its date.</p>
+                        </div>
+                        <form method="POST" action="<?= BASE_URL ?>/admin/sessions.php?term_id=<?= (int)$term['id'] ?>" data-validate>
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="create_session">
+                            <input type="hidden" name="term_id" value="<?= (int)$term['id'] ?>">
+
+                            <?= ad_field('single_label', 'Session name',
+                                '<input type="text" id="single_label" name="label" class="ad-input" required data-msg="Give the session a name." value="' . e($_POST['label'] ?? '') . '" placeholder="e.g. Session 16, Orientation" aria-describedby="single_label-err">',
+                                $errors['label'] ?? '') ?>
+
+                            <div class="ad-form-grid">
+                                <?= ad_field('single_date', 'Date',
+                                    '<input type="date" id="single_date" name="session_date" class="ad-input" required data-msg="Choose a date." value="' . e($_POST['session_date'] ?? '') . '" aria-describedby="single_date-err">',
+                                    $errors['session_date'] ?? '', 'Term runs ' . date('M j', strtotime($term['start_date'])) . ' to ' . date('M j, Y', strtotime($term['end_date'])) . '.') ?>
+                                <?= ad_field('single_status', 'Status',
+                                    '<select id="single_status" name="status" class="ad-input">'
+                                    . implode('', array_map(static fn($k, $v) => '<option value="' . $k . '">' . $v . '</option>', array_keys($status_names), $status_names))
+                                    . '</select>', '', '', false) ?>
+                            </div>
+                            <div class="ad-actions"><button type="submit" class="btn btn-primary"><?= ad_icon('plus', 14) ?> Add session</button></div>
+                        </form>
+                    </div>
+                </section>
             </div>
-            <p style="margin-top: 12px; font-size: 12px; color: var(--gray-700);">
-                Cancel, Re-schedule and Mark Held apply to every session on that date. Click a session label to edit it or change just that one.
-            </p>
+
         <?php endif; ?>
-    </div>
-
-<?php endif; ?>
-
+    <?php endif; ?>
+</div>
+<?php ad_js(); ?>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
