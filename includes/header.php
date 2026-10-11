@@ -16,24 +16,21 @@ $page_title = $page_title ?? 'UnitSync';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($page_title) ?> - UnitSync</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/app-shell.css">
+    <script src="<?= BASE_URL ?>/assets/js/app-shell.js" defer></script>
 </head>
-<body>
+<body class="app-shell">
     <header class="app-header">
         <div class="header-brand">
             <?php if ($user): ?>
                 <button type="button" class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle navigation menu">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
             <?php endif; ?>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gold-500);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>UnitSync</span>
+            <span class="brand-name">Unit<span>Sync</span></span>
         </div>
         <div class="header-user">
             <?php if ($user): ?>
-                <span style="display: inline-flex; align-items: center; gap: 4px;" title="Notifications">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    0
-                </span>
                 <?php
                     $full_name = trim($user['first_name'] . ' ' . $user['last_name']);
                     $initials = mb_strtoupper(mb_substr($user['first_name'], 0, 1) . mb_substr($user['last_name'], 0, 1));
@@ -42,7 +39,7 @@ $page_title = $page_title ?? 'UnitSync';
                     <summary>
                         <span class="user-avatar"><?= e($initials !== '' ? $initials : '?') ?></span>
                         <span class="user-menu-name"><?= e($full_name) ?></span>
-                        <svg class="user-menu-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        <svg class="user-menu-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </summary>
                     <div class="user-menu-panel">
                         <div class="user-menu-info">
@@ -50,9 +47,16 @@ $page_title = $page_title ?? 'UnitSync';
                             <div class="user-menu-username">@<?= e($user['username']) ?></div>
                             <div class="user-menu-role"><?= e(format_role_name($user['role'])) ?></div>
                         </div>
+                        <a class="user-menu-link" href="<?= BASE_URL ?>/profile.php">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            My Profile
+                        </a>
                         <form id="signout-form" action="<?= BASE_URL ?>/auth/logout.php" method="POST">
                             <?= csrf_field() ?>
-                            <button type="button" id="signout-btn" class="user-menu-signout">Sign out</button>
+                            <button type="button" id="signout-btn" class="user-menu-signout">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Sign out
+                            </button>
                         </form>
                     </div>
                 </details>

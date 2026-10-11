@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/s1_ui.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -115,9 +116,30 @@ function person(?string $first, ?string $last): string {
     return trim((string)$first . ' ' . (string)$last);
 }
 
+// Oldest submission still waiting for THIS account (drives the "Review oldest first" button)
+$next_id = 0;
+if ($term_id && $tab['needs'] > 0) {
+    $stmt = $pdo->prepare("
+        SELECT sub.id FROM attendance_submissions sub
+        JOIN training_sessions ts ON ts.id = sub.session_id
+        WHERE ts.term_id = ? AND sub.state = 'submitted' AND sub.$my_col IS NULL
+        ORDER BY sub.submitted_at ASC, sub.id ASC LIMIT 1
+    ");
+    $stmt->execute([$term_id]);
+    $next_id = (int)$stmt->fetchColumn();
+}
+
+$self_url = BASE_URL . '/s1/review_attendance.php';
+function ra_url(string $base, string $view, int $platoon): string {
+    $qs = array_filter(['view' => $view === 'needs' ? '' : $view, 'platoon' => $platoon ?: ''], fn($v) => $v !== '');
+    return $base . ($qs ? '?' . http_build_query($qs) : '');
+}
+
 $page_title = 'Review Attendance';
 require_once __DIR__ . '/../includes/header.php';
 ?>
+
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/s1_manage.css">
 
 <div class="content-header">
     <h1>Review Attendance</h1>
@@ -126,93 +148,118 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php if (!$active_term): ?>
-    <div class="summary-card" style="max-width: 650px;">
-        <h3 style="color: var(--warning);">No active term</h3>
-        <p style="font-size: 13px; color: var(--gray-700);">Ask the Admin to activate a term. Submissions are reviewed per term.</p>
+    <div class="s1-alert s1-alert-warn">
+        <div class="s1-alert-body"><strong>No active term.</strong> Ask the Admin to activate a term. Submissions are reviewed per term.</div>
     </div>
 <?php else: ?>
 
-    <div class="summary-card" style="margin-bottom: 16px;">
-        <form method="GET" action="<?= BASE_URL ?>/s1/review_attendance.php">
-            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-                <div class="form-group" style="margin: 0;">
-                    <label for="view">Show</label>
-                    <select id="view" name="view" class="form-control">
-                        <?php foreach ($views as $key => $label): ?>
-                            <option value="<?= e($key) ?>" <?= $view === $key ? 'selected' : '' ?>><?= e($label) ?> (<?= (int)$tab[$key] ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group" style="margin: 0;">
-                    <label for="platoon">Platoon</label>
-                    <select id="platoon" name="platoon" class="form-control">
-                        <option value="">All</option>
-                        <?php foreach ($platoons as $pl): ?>
-                            <option value="<?= (int)$pl['id'] ?>" <?= $platoon === (int)$pl['id'] ? 'selected' : '' ?>><?= e($pl['company_name'] . ' - ' . $pl['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <button type="submit" class="btn btn-primary">Filter</button>
-                    <a href="<?= BASE_URL ?>/s1/review_attendance.php" class="btn btn-secondary">Reset</a>
-                </div>
+    <?php if ($next_id): ?>
+        <div class="s1-alert s1-alert-warn" style="margin-bottom: 16px;">
+            <div class="s1-alert-body">
+                <strong><?= (int)$tab['needs'] ?> session<?= $tab['needs'] === 1 ? '' : 's' ?> waiting for your review.</strong>
+                Start with the oldest so Platoon Leaders are not kept waiting.
             </div>
+            <a href="<?= BASE_URL ?>/s1/review_session.php?id=<?= $next_id ?>" class="btn btn-primary">Review oldest first &rarr;</a>
+        </div>
+    <?php elseif ($view === 'needs'): ?>
+        <div class="s1-alert s1-alert-ok" style="margin-bottom: 16px;">
+            <div class="s1-alert-body"><strong>You are all caught up.</strong> Nothing is waiting for your approval right now.</div>
+        </div>
+    <?php endif; ?>
+
+    <nav class="s1-tabs" aria-label="Submission views">
+        <?php foreach ($views as $key => $label): ?>
+            <a class="s1-tab <?= $view === $key ? 'active' : '' ?> <?= $key === 'needs' && $tab['needs'] > 0 ? 's1-tab-warn' : '' ?>"
+               href="<?= e(ra_url($self_url, $key, $platoon)) ?>"><?= e($label) ?> <b><?= (int)$tab[$key] ?></b></a>
+        <?php endforeach; ?>
+    </nav>
+
+    <div class="s1-queue-bar">
+        <form method="GET" action="<?= e($self_url) ?>">
+            <input type="hidden" name="view" value="<?= e($view) ?>">
+            <label for="platoon">Platoon</label>
+            <select id="platoon" name="platoon" class="form-control <?= $platoon > 0 ? 'is-set' : '' ?>" data-s1-autosubmit style="width: auto; display: inline-block;">
+                <option value="">All platoons</option>
+                <?php foreach ($platoons as $pl): ?>
+                    <option value="<?= (int)$pl['id'] ?>" <?= $platoon === (int)$pl['id'] ? 'selected' : '' ?>><?= e($pl['company_name'] . ' - ' . $pl['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <noscript><button type="submit" class="btn btn-secondary btn-sm">Filter</button></noscript>
+            <?php if ($platoon > 0): ?><a class="s1-clear-all" href="<?= e(ra_url($self_url, $view, 0)) ?>">Clear</a><?php endif; ?>
         </form>
+        <span class="s1-rv-count"><?= count($rows) ?> submission(s) shown</span>
     </div>
 
-    <div class="table-responsive">
-        <table class="data-table">
+    <div class="s1-rv-wrap">
+        <table class="s1-table s1-queue">
             <thead>
                 <tr>
                     <th>Session</th>
                     <th>Company / Platoon</th>
-                    <th>Marked</th>
+                    <th>Marks</th>
                     <th>Submitted</th>
                     <th>Approvals</th>
                     <th>State</th>
-                    <th>Action</th>
+                    <th style="text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$rows): ?>
-                    <tr><td colspan="7">
-                        <?= $view === 'needs' ? 'Nothing is waiting for your review.' : 'No submissions match this view.' ?>
+                    <tr><td colspan="7" class="s1-empty-ok">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <strong><?= $view === 'needs' ? 'Nothing is waiting for your review.' : 'No submissions match this view.' ?></strong>
+                        <?php if ($platoon > 0): ?><a href="<?= e(ra_url($self_url, $view, 0)) ?>">Show all platoons</a><?php endif; ?>
                     </td></tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $r): ?>
                     <?php
                         $mine_done = ($r[$my_col] !== null);
                         $needs_me = ($r['state'] === 'submitted' && !$mine_done);
+                        $cp = (int)$r['cp']; $ca = (int)$r['ca']; $cl = (int)$r['cl']; $ce = (int)$r['ce'];
+                        $marked = $cp + $ca + $cl + $ce;
+                        $total = (int)$r['total_cadets'];
+                        $unmarked = max(0, $total - $marked);
+                        $rate = s1_rate($cp, $cl, $ca);
+                        $days = s1_age_days($r['submitted_at']);
+                        $stale = ($r['state'] === 'submitted' && $days !== null && $days >= 3);
                     ?>
-                    <tr>
+                    <tr class="<?= $needs_me ? 's1-row-needs' : '' ?>">
                         <td>
-                            <strong><?= e($r['label']) ?></strong><br>
-                            <span style="font-size: 12px; color: var(--gray-700);"><?= e(date('M d, Y', strtotime($r['session_date']))) ?></span>
+                            <div class="s1-cadet-name"><?= e($r['label']) ?></div>
+                            <div class="s1-cadet-code"><?= e(date('M d, Y', strtotime($r['session_date']))) ?></div>
                         </td>
-                        <td><?= e($r['company_name']) ?> - <?= e($r['platoon_name']) ?></td>
-                        <td style="font-size: 13px;">
-                            P <?= (int)$r['cp'] ?> &middot; A <?= (int)$r['ca'] ?> &middot; L <?= (int)$r['cl'] ?> &middot; E <?= (int)$r['ce'] ?>
-                            <br><span style="color: var(--gray-700);">of <?= (int)$r['total_cadets'] ?> cadets</span>
-                        </td>
-                        <td style="font-size: 13px;">
-                            <?= $r['submitted_at'] ? e(date('M d, Y g:i A', strtotime($r['submitted_at']))) : '&mdash;' ?>
-                            <?php if (person($r['sub_first'], $r['sub_last']) !== ''): ?>
-                                <br><span style="color: var(--gray-700);">by <?= e(person($r['sub_first'], $r['sub_last'])) ?></span>
+                        <td><?= e($r['company_name']) ?> &middot; <?= e($r['platoon_name']) ?></td>
+                        <td>
+                            <?= s1_stack(['p' => $cp, 'l' => $cl, 'a' => $ca, 'e' => $ce]) ?>
+                            <div class="s1-cnts">
+                                <span><span class="s1-mark s1-mark-sm s1-mark-P">P</span> <?= $cp ?></span>
+                                <span><span class="s1-mark s1-mark-sm s1-mark-L">L</span> <?= $cl ?></span>
+                                <span><span class="s1-mark s1-mark-sm s1-mark-A">A</span> <?= $ca ?></span>
+                                <span><span class="s1-mark s1-mark-sm s1-mark-E">E</span> <?= $ce ?></span>
+                                <?php if ($rate !== null): ?><span><?= number_format($rate, 0) ?>%</span><?php endif; ?>
+                            </div>
+                            <?php if ($unmarked > 0 && $r['state'] !== 'approved'): ?>
+                                <div class="s1-queue-warn"><?= $unmarked ?> of <?= $total ?> not marked</div>
                             <?php endif; ?>
                         </td>
-                        <td style="font-size: 13px;">
-                            Battalion:
-                            <?php if ($r['battalion_approved_at'] !== null): ?>
-                                <strong>Approved</strong><?= person($r['bn_first'], $r['bn_last']) !== '' ? ' (' . e(person($r['bn_first'], $r['bn_last'])) . ')' : '' ?>
-                            <?php else: ?>Pending<?php endif; ?>
-                            <br>
-                            Brigade:
-                            <?php if ($r['brigade_approved_at'] !== null): ?>
-                                <strong>Approved</strong><?= person($r['br_first'], $r['br_last']) !== '' ? ' (' . e(person($r['br_first'], $r['br_last'])) . ')' : '' ?>
-                            <?php else: ?>Pending<?php endif; ?>
+                        <td>
+                            <?php if ($r['submitted_at']): ?>
+                                <span class="s1-wait <?= $stale ? 'is-old' : '' ?>"><?= e(s1_ago($r['submitted_at'])) ?></span>
+                                <div class="s1-cadet-code"><?= e(date('M d, g:i A', strtotime($r['submitted_at']))) ?><?= person($r['sub_first'], $r['sub_last']) !== '' ? ' &middot; ' . e(person($r['sub_first'], $r['sub_last'])) : '' ?></div>
+                            <?php else: ?>&mdash;<?php endif; ?>
+                        </td>
+                        <td>
+                            <div class="s1-appr-wrap">
+                                <?php foreach ([['Battalion', 'battalion', $r['battalion_approved_at'], person($r['bn_first'], $r['bn_last'])],
+                                                ['Brigade', 'brigade', $r['brigade_approved_at'], person($r['br_first'], $r['br_last'])]] as [$lbl, $lv, $at, $who]): ?>
+                                    <span class="s1-appr <?= $at !== null ? 'done' : '' ?>" title="<?= $at !== null ? e($who !== '' ? 'Approved by ' . $who : 'Approved') : 'Pending' ?>">
+                                        <?= $lbl ?><?= $lv === $level ? ' (you)' : '' ?><?= $at !== null ? ': approved' : ': pending' ?>
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
                         </td>
                         <td><span class="badge badge-<?= e($r['state']) ?>"><?= e(ucfirst($r['state'])) ?></span></td>
-                        <td>
+                        <td style="text-align: right;">
                             <a href="<?= BASE_URL ?>/s1/review_session.php?id=<?= (int)$r['id'] ?>"
                                class="btn btn-sm <?= $needs_me ? 'btn-primary' : 'btn-secondary' ?>"><?= $needs_me ? 'Review' : 'View' ?></a>
                         </td>
@@ -227,5 +274,7 @@ require_once __DIR__ . '/../includes/header.php';
     <?php endif; ?>
 
 <?php endif; ?>
+
+<script src="<?= BASE_URL ?>/assets/js/s1_manage.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

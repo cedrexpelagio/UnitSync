@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/officer_accounts.php';
+require_once __DIR__ . '/../includes/s1_import_ui.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -123,6 +124,31 @@ if (isset($_GET['template'])) {
     echo "Full Name,Role,Company,Platoon\r\n";
     echo "\"Reyes, Carlo M.\",Company Commander,Alpha,\r\n";
     echo "\"Santos, Ana B.\",Platoon Leader,Alpha,1st Platoon\r\n";
+    exit;
+}
+
+// ---------- Download the rows that have errors, ready to fix and upload again ----------
+function off_csv_safe($v): string {
+    $s = (string)$v;
+    return ($s !== '' && in_array($s[0], ['=', '+', '-', '@'], true)) ? "'" . $s : $s;
+}
+
+if (isset($_GET['errors'])) {
+    $imp = $_SESSION['officer_import'] ?? null;
+    if (!$imp) {
+        set_flash('error', 'No import in progress. Please upload the file again.');
+        redirect('s1/import_officers.php');
+    }
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="officer_import_rows_to_fix.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Full Name', 'Role', 'Company', 'Platoon', 'Reason']);
+    foreach ($imp['rows'] as $r) {
+        if ($r['status'] !== 'error') continue;
+        fputcsv($out, array_map('off_csv_safe', [$r['full_name'], $r['role_label'], $r['company'], $r['platoon'], $r['note']]));
+    }
+    fclose($out);
     exit;
 }
 
@@ -439,9 +465,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---------- Page data ----------
 $import = $_SESSION['officer_import'] ?? null;
 $counts = ['ok' => 0, 'error' => 0, 'duplicate' => 0];
+$ok_cc = 0;   // Company Commanders ready to save
+$ok_pl = 0;   // Platoon Leaders ready to save (each gets a login account)
 if ($import) {
-    foreach ($import['rows'] as $r) $counts[$r['status']]++;
+    foreach ($import['rows'] as $r) {
+        $counts[$r['status']]++;
+        if ($r['status'] === 'ok') {
+            if ($r['role'] === 'company_commander') $ok_cc++;
+            elseif ($r['role'] === 'platoon_leader') $ok_pl++;
+        }
+    }
 }
+$total_rows = $import ? count($import['rows']) : 0;
 
 $officers = $pdo->query("
     SELECT o.last_name, o.first_name, o.middle_name, o.role, c.name AS company, p.name AS platoon
@@ -452,129 +487,274 @@ $officers = $pdo->query("
     ORDER BY c.name, o.role = 'platoon_leader', p.name, o.last_name, o.first_name
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// Which positions are filled and which are still open (guides what the file needs to contain)
+$ref_companies = $pdo->query("SELECT id, name FROM companies ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$ref_platoons  = [];
+foreach ($pdo->query("SELECT company_id, name FROM platoons ORDER BY name") as $p) {
+    $ref_platoons[(int)$p['company_id']][] = $p['name'];
+}
+$cc_filled = [];
+$pl_filled = [];
+foreach ($officers as $o) {
+    $nm = $o['last_name'] . ', ' . $o['first_name'];
+    if ($o['role'] === 'company_commander') $cc_filled[$o['company']] = $nm;
+    else $pl_filled[$o['company'] . '|' . $o['platoon']] = $nm;
+}
+$open_slots = 0;
+foreach ($ref_companies as $c) {
+    if (!isset($cc_filled[$c['name']])) $open_slots++;
+    foreach ($ref_platoons[(int)$c['id']] ?? [] as $pn) {
+        if (!isset($pl_filled[$c['name'] . '|' . $pn])) $open_slots++;
+    }
+}
+
+$fix_hints = [];
+if ($import && $counts['error'] > 0) {
+    $rules = [
+        ['Use the format',                    'Write names as "Last name, First name M." with a comma after the last name.'],
+        ['Full name is required',             'Fill in the Full Name cell.'],
+        ['Role must be',                      'Role is Company Commander or Platoon Leader (CC and PL also work).'],
+        ['Role is required',                  'Fill in the Role cell.'],
+        ['Company is required',               'Fill in the Company cell.'],
+        ['Unknown company',                   'Spell the company as listed on the upload screen.'],
+        ['Unknown platoon',                   'Use a platoon that belongs to that company, for example 1st Platoon.'],
+        ['Platoon is required',               'Platoon Leaders need a platoon.'],
+        ['has no platoon',                    'Leave Platoon empty for a Company Commander.'],
+        ['already has a',                     'That position is already filled. Remove the row, or change the existing officer first.'],
+        ['more than one',                     'Each company has one Company Commander and each platoon one Platoon Leader. Keep one row per position.'],
+    ];
+    foreach ($rules as [$needle, $hint]) {
+        $n = 0;
+        foreach ($import['rows'] as $r) {
+            if ($r['status'] === 'error' && strpos($r['note'], $needle) !== false) $n++;
+        }
+        if ($n > 0) $fix_hints[] = [$n, $hint];
+    }
+}
+
+$self = BASE_URL . '/s1/import_officers.php';
 $page_title = 'Import Officers';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="content-header">
-    <h1>Import Officers</h1>
-    <p>Upload a CSV to add Company Commanders and Platoon Leaders. Active officers on file: <strong><?= count($officers) ?></strong>. <a href="<?= BASE_URL ?>/s1/officers.php">View officer roster</a></p>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/s1_manage.css">
+
+<div class="s1-rv-head">
+    <div>
+        <h1>Import Officers</h1>
+        <p>Add Company Commanders and Platoon Leaders from a CSV file. Active officers on file: <strong><?= count($officers) ?></strong>.</p>
+    </div>
+    <div class="s1-rv-nav">
+        <a href="<?= BASE_URL ?>/s1/officers.php" class="btn btn-secondary btn-sm">&larr; Back to officer roster</a>
+    </div>
 </div>
+
+<?= s1_import_stepper($import ? 2 : 1) ?>
 
 <?php if (!$import): ?>
 
-    <div class="summary-card" style="max-width: 650px; margin-bottom: 24px;">
-        <h3>Step 1: Upload CSV file</h3>
-        <p>The file needs these columns: <strong>Full Name, Role, Company, Platoon</strong>. Extra columns such as Timestamp are ignored.
-           Write the name as <strong>Last name, First name M.</strong> (for example <em>Dela Cruz, Juan A.</em>).
-           Role is <strong>Company Commander</strong> or <strong>Platoon Leader</strong>.
-           A Platoon Leader needs a Platoon (for example <em>1st Platoon</em>); leave Platoon empty for a Company Commander.
-           Each company can have one Company Commander and each platoon one Platoon Leader.</p>
-        <p>A login account is generated automatically for every Platoon Leader. The temporary passwords are shown once on the Officer Roster after you save.</p>
-        <p><a href="<?= BASE_URL ?>/s1/import_officers.php?template=1">Download CSV template</a></p>
-
-        <form action="<?= BASE_URL ?>/s1/import_officers.php" method="POST" enctype="multipart/form-data">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="upload">
-            <div class="form-group">
-                <label for="csv_file">CSV file (max 1 MB)</label>
-                <input type="file" id="csv_file" name="csv_file" accept=".csv" class="form-control" required>
+    <div class="s1-rv-layout">
+        <div class="s1-col">
+            <div class="s1-card">
+                <h3>Upload your CSV file</h3>
+                <?= s1_import_dropzone($self, OFFICER_IMPORT_MAX_BYTES, '.csv only, up to 1 MB and ' . OFFICER_IMPORT_MAX_ROWS . ' rows') ?>
             </div>
-            <button type="submit" class="btn btn-primary">Upload and preview</button>
-        </form>
-    </div>
 
-    <div class="summary-card">
-        <h3>Current officers</h3>
-        <?php if (!$officers): ?>
-            <p>No officers have been imported yet.</p>
-        <?php else: ?>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Role</th>
-                            <th>Company</th>
-                            <th>Platoon</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($officers as $o): ?>
+            <div class="s1-card">
+                <h3>What your file should look like</h3>
+                <p class="s1-sub">Keep all four column headers. Extra columns such as Timestamp are ignored.</p>
+                <div class="table-responsive" style="margin-bottom: 0;">
+                    <table class="s1-sample">
+                        <thead>
                             <tr>
-                                <td><?= e($o['last_name'] . ', ' . $o['first_name'] . ($o['middle_name'] ? ' ' . $o['middle_name'] : '')) ?></td>
-                                <td><?= e(OFFICER_ROLE_LABELS[$o['role']] ?? $o['role']) ?></td>
-                                <td><?= e($o['company']) ?></td>
-                                <td><?= e($o['platoon'] ?? '-') ?></td>
+                                <th>Full Name<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Role<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Company<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Platoon<span class="s1-req s1-req-opt">Platoon Leader only</span></th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <tr><td>Reyes, Carlo M.</td><td>Company Commander</td><td>Alpha</td><td class="is-blank">empty</td></tr>
+                            <tr><td>Santos, Ana B.</td><td>Platoon Leader</td><td>Alpha</td><td>1st Platoon</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        <?php endif; ?>
+
+            <div class="s1-card">
+                <h3>Current officers</h3>
+                <?php if (!$officers): ?>
+                    <p class="s1-muted" style="font-style: normal;">No officers have been imported yet.</p>
+                <?php else: ?>
+                    <div class="s1-rv-wrap" style="max-height: 360px; margin-bottom: 0;">
+                        <table class="s1-table">
+                            <thead>
+                                <tr><th>Name</th><th>Role</th><th>Company</th><th>Platoon</th></tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($officers as $o): ?>
+                                    <tr>
+                                        <td class="s1-cadet-name"><?= e($o['last_name'] . ', ' . $o['first_name'] . ($o['middle_name'] ? ' ' . $o['middle_name'] : '')) ?></td>
+                                        <td><?= e(OFFICER_ROLE_LABELS[$o['role']] ?? $o['role']) ?></td>
+                                        <td><?= e($o['company']) ?></td>
+                                        <td><?= e($o['platoon'] ?? '-') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <aside class="s1-rv-side s1-side-after" aria-label="Import guide">
+            <div class="s1-card">
+                <h3>Before you upload</h3>
+                <ul class="s1-checks">
+                    <li class="info"><?= s1_import_icon('info') ?><span>Write each name as <strong>Last name, First name M.</strong></span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>Role is <strong>Company Commander</strong> or <strong>Platoon Leader</strong>.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>A Platoon Leader needs a platoon. Leave Platoon empty for a Company Commander.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>One Company Commander per company and one Platoon Leader per platoon.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>Every Platoon Leader gets a login account. The temporary passwords are shown <strong>once</strong> on the Officer Roster after you save.</span></li>
+                </ul>
+            </div>
+            <div class="s1-card">
+                <h3>Positions <?= $open_slots > 0 ? '(' . $open_slots . ' open)' : '(all filled)' ?></h3>
+                <ul class="s1-slots">
+                    <?php foreach ($ref_companies as $c): ?>
+                        <li>
+                            <strong><?= e($c['name']) ?></strong>
+                            <?php $cc = $cc_filled[$c['name']] ?? null; ?>
+                            <span class="s1-slot <?= $cc === null ? 'open' : '' ?>" title="Company Commander"><?= $cc === null ? 'Commander: open' : 'Commander: ' . e($cc) ?></span>
+                            <?php foreach ($ref_platoons[(int)$c['id']] ?? [] as $pn): ?>
+                                <?php $pl = $pl_filled[$c['name'] . '|' . $pn] ?? null; ?>
+                                <span class="s1-slot <?= $pl === null ? 'open' : '' ?>" title="Platoon Leader"><?= e($pn) ?>: <?= $pl === null ? 'open' : e($pl) ?></span>
+                            <?php endforeach; ?>
+                        </li>
+                    <?php endforeach; ?>
+                    <?php if (!$ref_companies): ?><li class="s1-muted">No companies set up yet</li><?php endif; ?>
+                </ul>
+            </div>
+        </aside>
     </div>
 
 <?php else: ?>
 
-    <div class="summary-card" style="margin-bottom: 16px;">
-        <h3>Step 2: Review and confirm</h3>
-        <p>File: <strong><?= e($import['file']) ?></strong></p>
-        <p>
-            <span class="badge badge-approved"><?= $counts['ok'] ?> ready to save</span>
-            <span class="badge badge-pending"><?= $counts['duplicate'] ?> duplicate (skipped)</span>
-            <span class="badge badge-rejected"><?= $counts['error'] ?> with errors (skipped)</span>
-        </p>
-        <?php if ($counts['error'] > 0): ?>
-            <p>Rows with errors will not be saved. Fix them in your file and upload again, or continue to save only the valid rows.</p>
-        <?php endif; ?>
+    <div class="s1-rv-layout">
+        <section data-s1-review aria-label="Rows in your file">
+            <?php if ($counts['ok'] === 0): ?>
+                <div class="s1-alert s1-alert-bad" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong>Nothing can be saved from this file.</strong> Every row has an error or is already on the roster. Fix the file and upload it again.</div>
+                </div>
+            <?php elseif ($counts['error'] > 0): ?>
+                <div class="s1-alert s1-alert-warn" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong><?= $counts['error'] ?> row(s) have errors and will be skipped.</strong> Fix them in your file and upload again, or save only the <?= $counts['ok'] ?> valid row(s).</div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-s1-filter-mark="error" aria-pressed="false">Show errors only</button>
+                </div>
+            <?php else: ?>
+                <div class="s1-alert s1-alert-ok" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong>Every row looks good.</strong> Check the list, then save.</div>
+                </div>
+            <?php endif; ?>
 
-        <form action="<?= BASE_URL ?>/s1/import_officers.php" method="POST" style="display:inline;">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="confirm">
-            <button type="submit" class="btn btn-primary" <?= $counts['ok'] === 0 ? 'disabled' : '' ?>>Save <?= $counts['ok'] ?> officer(s)</button>
-        </form>
-        <form action="<?= BASE_URL ?>/s1/import_officers.php" method="POST" style="display:inline;">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn btn-secondary">Cancel</button>
-        </form>
-    </div>
+            <div class="s1-tiles">
+                <button type="button" class="s1-tile s1-tile-all" data-s1-filter-mark="all" aria-pressed="true"><span>All rows</span><strong><?= $total_rows ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-P" data-s1-filter-mark="ok" aria-pressed="false"><span>Ready to save</span><strong><?= $counts['ok'] ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-L" data-s1-filter-mark="duplicate" aria-pressed="false"><span>Duplicates</span><strong><?= $counts['duplicate'] ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-A" data-s1-filter-mark="error" aria-pressed="false"><span>Errors</span><strong><?= $counts['error'] ?></strong></button>
+            </div>
 
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Line</th>
-                    <th>Full Name</th>
-                    <th>Role</th>
-                    <th>Company</th>
-                    <th>Platoon</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($import['rows'] as $r): ?>
-                    <tr>
-                        <td><?= (int)$r['line'] ?></td>
-                        <td><?= e($r['full_name']) ?></td>
-                        <td><?= e($r['role_label']) ?></td>
-                        <td><?= e($r['company']) ?></td>
-                        <td><?= e($r['platoon'] !== '' ? $r['platoon'] : '-') ?></td>
-                        <td>
-                            <?php if ($r['status'] === 'ok'): ?>
-                                <span class="badge badge-approved">Ready</span>
-                            <?php elseif ($r['status'] === 'duplicate'): ?>
-                                <span class="badge badge-pending">Duplicate</span> <?= e($r['note']) ?>
-                            <?php else: ?>
-                                <span class="badge badge-rejected">Error</span> <?= e($r['note']) ?>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+            <div class="s1-rv-tools">
+                <div class="s1-search">
+                    <svg class="s1-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    <input type="search" class="form-control" placeholder="Find a name" data-s1-marksearch aria-label="Find a name in this file" autocomplete="off">
+                </div>
+                <span class="s1-rv-count">Showing <strong data-s1-markshown><?= $total_rows ?></strong> of <?= $total_rows ?> &middot; File: <?= e($import['file']) ?></span>
+            </div>
+
+            <div class="s1-rv-wrap">
+                <table class="s1-table">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Full Name</th>
+                            <th>Role</th>
+                            <th>Company</th>
+                            <th>Platoon</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($import['rows'] as $r): ?>
+                            <tr data-mark="<?= e($r['status']) ?>" data-name="<?= e(mb_strtolower($r['full_name'])) ?>"
+                                class="<?= $r['status'] === 'error' ? 's1-row-err' : ($r['status'] === 'duplicate' ? 's1-row-dup' : '') ?>">
+                                <td class="s1-cadet-code"><?= (int)$r['line'] ?></td>
+                                <td class="s1-cadet-name"><?= e($r['full_name']) ?></td>
+                                <td><?= e($r['role_label']) ?></td>
+                                <td><?= e($r['company']) ?></td>
+                                <td><?= e($r['platoon'] !== '' ? $r['platoon'] : '-') ?></td>
+                                <td>
+                                    <?= s1_import_pill($r['status']) ?>
+                                    <?php if ($r['note'] !== ''): ?><div class="s1-res-note <?= $r['status'] === 'error' ? 'is-bad' : '' ?>"><?= e($r['note']) ?></div><?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <div class="s1-rv-empty" data-s1-markempty hidden>No row matches this view. Clear the search or pick another tile.</div>
+            </div>
+        </section>
+
+        <aside class="s1-rv-side" aria-label="Save or cancel">
+            <div class="s1-card s1-decide">
+                <h3>Ready to save?</h3>
+                <ul class="s1-checks">
+                    <li class="<?= $counts['ok'] > 0 ? 'ok' : 'bad is-bad' ?>"><?= s1_import_icon($counts['ok'] > 0 ? 'ok' : 'bad') ?><span><strong><?= $counts['ok'] ?></strong> officer(s) will be saved (<?= $ok_cc ?> commander, <?= $ok_pl ?> platoon leader)</span></li>
+                    <?php if ($ok_pl > 0): ?>
+                        <li class="info"><?= s1_import_icon('info') ?><span><?= $ok_pl ?> login account(s) will be created. Copy the temporary passwords on the Officer Roster, they are shown only once.</span></li>
+                    <?php endif; ?>
+                    <?php if ($counts['duplicate'] > 0): ?>
+                        <li class="info"><?= s1_import_icon('info') ?><span><?= $counts['duplicate'] ?> duplicate(s) skipped</span></li>
+                    <?php endif; ?>
+                    <?php if ($counts['error'] > 0): ?>
+                        <li class="bad is-bad"><?= s1_import_icon('bad') ?><span><?= $counts['error'] ?> row(s) with errors skipped</span></li>
+                    <?php endif; ?>
+                </ul>
+
+                <form action="<?= e($self) ?>" method="POST"
+                      data-s1-confirm="Save <?= (int)$counts['ok'] ?> officer(s)?<?= $ok_pl > 0 ? ' ' . $ok_pl . ' login account(s) will be created and their temporary passwords are shown only once.' : '' ?>"
+                      data-s1-confirm-title="Save imported officers" data-s1-confirm-ok="Save">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="confirm">
+                    <button type="submit" class="btn btn-primary btn-block" <?= $counts['ok'] === 0 ? 'disabled' : '' ?>>Save <?= $counts['ok'] ?> officer(s)</button>
+                </form>
+                <form action="<?= e($self) ?>" method="POST" style="margin-top: 8px;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="cancel">
+                    <button type="submit" class="btn btn-secondary btn-block">Cancel and start over</button>
+                </form>
+                <?php if ($counts['error'] > 0): ?>
+                    <hr>
+                    <a href="<?= e($self) ?>?errors=1" class="btn btn-secondary btn-block">Download rows to fix (CSV)</a>
+                    <p class="help">Fix the problems listed in the Reason column, then upload that file as a new import.</p>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($fix_hints): ?>
+                <div class="s1-card">
+                    <h3>How to fix the errors</h3>
+                    <ul class="s1-fixlist">
+                        <?php foreach ($fix_hints as [$n, $hint]): ?>
+                            <li><b><?= $n ?></b><span><?= e($hint) ?></span></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+        </aside>
     </div>
 
 <?php endif; ?>
+
+<script src="<?= BASE_URL ?>/assets/js/s1_manage.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

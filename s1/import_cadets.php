@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/flash.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/s1_import_ui.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -124,6 +125,31 @@ if (isset($_GET['template'])) {
     echo "Full Name,Gender,Program,Company,Platoon\r\n";
     echo "\"Dela Cruz, Juan A.\",Male,BSIT,Alpha,1st Platoon\r\n";
     echo "\"Santos, Maria B.\",Female,BSN,,\r\n";
+    exit;
+}
+
+// ---------- Download the rows that have errors, ready to fix and upload again ----------
+function cad_csv_safe($v): string {
+    $s = (string)$v;
+    return ($s !== '' && in_array($s[0], ['=', '+', '-', '@'], true)) ? "'" . $s : $s;
+}
+
+if (isset($_GET['errors'])) {
+    $imp = $_SESSION['cadet_import'] ?? null;
+    if (!$imp) {
+        set_flash('error', 'No import in progress. Please upload the file again.');
+        redirect('s1/import_cadets.php');
+    }
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="cadet_import_rows_to_fix.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Full Name', 'Gender', 'Program', 'Company', 'Platoon', 'Reason']);
+    foreach ($imp['rows'] as $r) {
+        if ($r['status'] !== 'error') continue;
+        fputcsv($out, array_map('cad_csv_safe', [$r['full_name'], $r['gender'], $r['program'], $r['company'], $r['platoon'], $r['note']]));
+    }
+    fclose($out);
     exit;
 }
 
@@ -426,111 +452,261 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---------- Page data ----------
 $import = $_SESSION['cadet_import'] ?? null;
 $counts = ['ok' => 0, 'error' => 0, 'duplicate' => 0];
+$placed_n = 0;       // ready rows that get a company (and so an enrollment)
+$unassigned_n = 0;   // ready rows that will show as Unassigned on the roster (no platoon)
 if ($import) {
-    foreach ($import['rows'] as $r) $counts[$r['status']]++;
+    foreach ($import['rows'] as $r) {
+        $counts[$r['status']]++;
+        if ($r['status'] === 'ok') {
+            if ($r['company_id'] > 0) $placed_n++;
+            if ($r['platoon_id'] === null) $unassigned_n++;
+        }
+    }
 }
+$total_rows = $import ? count($import['rows']) : 0;
 
 $cadet_total = (int)$pdo->query("SELECT COUNT(*) FROM cadets WHERE status = 'active'")->fetchColumn();
 
+// Accepted values, shown on the upload screen so the file can be prepared correctly
+$ref_programs  = $pdo->query("SELECT code, name FROM programs ORDER BY code")->fetchAll(PDO::FETCH_ASSOC);
+$ref_companies = $pdo->query("SELECT id, name FROM companies ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$ref_platoons  = [];
+foreach ($pdo->query("SELECT company_id, name FROM platoons ORDER BY name") as $p) {
+    $ref_platoons[(int)$p['company_id']][] = $p['name'];
+}
+
+// What went wrong, in plain words, with how many rows are affected
+$fix_hints = [];
+if ($import && $counts['error'] > 0) {
+    $rules = [
+        ['Use the format',        'Write names as "Last name, First name M." with a comma after the last name.'],
+        ['Full name is required', 'Fill in the Full Name cell.'],
+        ['Gender',                'Use Male or Female (M and F also work).'],
+        ['Program',               'Use a program code from the list on the upload screen, for example BSIT.'],
+        ['Unknown company',       'Spell the company as listed on the upload screen, or leave it empty.'],
+        ['Unknown platoon',       'Use a platoon that belongs to that company, for example 1st Platoon.'],
+        ['Company is required',   'Add the company for rows that have a platoon, or clear the platoon.'],
+    ];
+    foreach ($rules as [$needle, $hint]) {
+        $n = 0;
+        foreach ($import['rows'] as $r) {
+            if ($r['status'] === 'error' && strpos($r['note'], $needle) !== false) $n++;
+        }
+        if ($n > 0) $fix_hints[] = [$n, $hint];
+    }
+}
+
+$self = BASE_URL . '/s1/import_cadets.php';
 $page_title = 'Import Cadets';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="content-header">
-    <h1>Import Cadets</h1>
-    <p>Upload a CSV to add cadets to the roster. Active cadets on file: <strong><?= $cadet_total ?></strong>. <a href="<?= BASE_URL ?>/s1/roster.php">Back to cadet roster</a></p>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/s1_manage.css">
+
+<div class="s1-rv-head">
+    <div>
+        <h1>Import Cadets</h1>
+        <p>Add many cadets to the roster at once from a CSV file. Active cadets on file: <strong><?= $cadet_total ?></strong>.</p>
+    </div>
+    <div class="s1-rv-nav">
+        <a href="<?= BASE_URL ?>/s1/roster.php" class="btn btn-secondary btn-sm">&larr; Back to cadet roster</a>
+    </div>
 </div>
 
 <?php if (!$active_term_id): ?>
-    <div class="alert alert-warning" style="margin-bottom: 16px;">No active term is set, so cadets will be saved without a company or platoon. An Administrator must activate a term.</div>
+    <div class="s1-alert s1-alert-warn" style="margin-bottom: 16px;">
+        <div class="s1-alert-body"><strong>No active term is set.</strong> Cadets will be saved without a company or platoon until an Administrator activates a term.</div>
+    </div>
 <?php endif; ?>
+
+<?= s1_import_stepper($import ? 2 : 1) ?>
 
 <?php if (!$import): ?>
 
-    <div class="summary-card" style="max-width: 650px; margin-bottom: 24px;">
-        <h3>Step 1: Upload CSV file</h3>
-        <p>The file needs these columns: <strong>Full Name, Gender, Program, Company, Platoon</strong>. Extra columns such as Timestamp are ignored.
-           Write the name as <strong>Last name, First name M.</strong> (for example <em>Dela Cruz, Juan A.</em>).
-           Gender is <strong>Male</strong> or <strong>Female</strong>. Program is the program code (for example <em>BSIT</em>).
-           Company and Platoon are optional: a cadet with no platoon shows as <em>Unassigned</em> on the roster and can be assigned later.
-           A Platoon needs its Company.</p>
-        <p>A cadet code is generated automatically for every cadet saved.</p>
-        <p><a href="<?= BASE_URL ?>/s1/import_cadets.php?template=1">Download CSV template</a></p>
-
-        <form action="<?= BASE_URL ?>/s1/import_cadets.php" method="POST" enctype="multipart/form-data">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="upload">
-            <div class="form-group">
-                <label for="csv_file">CSV file (max 2 MB)</label>
-                <input type="file" id="csv_file" name="csv_file" accept=".csv" class="form-control" required>
+    <div class="s1-rv-layout">
+        <div class="s1-col">
+            <div class="s1-card">
+                <h3>Upload your CSV file</h3>
+                <?= s1_import_dropzone($self, CADET_IMPORT_MAX_BYTES, '.csv only, up to 2 MB and ' . CADET_IMPORT_MAX_ROWS . ' rows') ?>
             </div>
-            <button type="submit" class="btn btn-primary">Upload and preview</button>
-        </form>
+
+            <div class="s1-card">
+                <h3>What your file should look like</h3>
+                <p class="s1-sub">Keep all five column headers, even when a column is empty. Extra columns such as Timestamp are ignored.</p>
+                <div class="table-responsive" style="margin-bottom: 0;">
+                    <table class="s1-sample">
+                        <thead>
+                            <tr>
+                                <th>Full Name<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Gender<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Program<span class="s1-req s1-req-must">Required</span></th>
+                                <th>Company<span class="s1-req s1-req-opt">Optional</span></th>
+                                <th>Platoon<span class="s1-req s1-req-opt">Optional</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Dela Cruz, Juan A.</td><td>Male</td><td>BSIT</td><td>Alpha</td><td>1st Platoon</td></tr>
+                            <tr><td>Santos, Maria B.</td><td>Female</td><td>BSN</td><td class="is-blank">empty</td><td class="is-blank">empty</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <aside class="s1-rv-side s1-side-after" aria-label="Import guide">
+            <div class="s1-card">
+                <h3>Before you upload</h3>
+                <ul class="s1-checks">
+                    <li class="info"><?= s1_import_icon('info') ?><span>Write each name as <strong>Last name, First name M.</strong></span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>Gender is <strong>Male</strong> or <strong>Female</strong>.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>Use a <strong>program code</strong> from the list below.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>No platoon yet? Leave it empty. The cadet shows as <strong>Unassigned</strong> and you can assign later. A platoon needs its company.</span></li>
+                    <li class="info"><?= s1_import_icon('info') ?><span>A cadet code is generated for every cadet saved.</span></li>
+                </ul>
+            </div>
+            <div class="s1-card">
+                <h3>Accepted values</h3>
+                <div class="s1-vals-label">Programs</div>
+                <div class="s1-vals">
+                    <?php foreach ($ref_programs as $p): ?><span class="s1-val" title="<?= e((string)$p['name']) ?>"><?= e($p['code']) ?></span><?php endforeach; ?>
+                    <?php if (!$ref_programs): ?><span class="s1-muted">No programs set up yet</span><?php endif; ?>
+                </div>
+                <div class="s1-vals-label">Companies and platoons</div>
+                <ul class="s1-slots">
+                    <?php foreach ($ref_companies as $c): ?>
+                        <li>
+                            <strong><?= e($c['name']) ?></strong>
+                            <div class="s1-vals">
+                                <?php foreach ($ref_platoons[(int)$c['id']] ?? [] as $pn): ?><span class="s1-val s1-val-gold"><?= e($pn) ?></span><?php endforeach; ?>
+                                <?php if (empty($ref_platoons[(int)$c['id']])): ?><span class="s1-muted">No platoons</span><?php endif; ?>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                    <?php if (!$ref_companies): ?><li class="s1-muted">No companies set up yet</li><?php endif; ?>
+                </ul>
+            </div>
+        </aside>
     </div>
 
 <?php else: ?>
 
-    <div class="summary-card" style="margin-bottom: 16px;">
-        <h3>Step 2: Review and confirm</h3>
-        <p>File: <strong><?= e($import['file']) ?></strong></p>
-        <p>
-            <span class="badge badge-approved"><?= $counts['ok'] ?> ready to save</span>
-            <span class="badge badge-pending"><?= $counts['duplicate'] ?> duplicate (skipped)</span>
-            <span class="badge badge-rejected"><?= $counts['error'] ?> with errors (skipped)</span>
-        </p>
-        <?php if ($counts['error'] > 0): ?>
-            <p>Rows with errors will not be saved. Fix them in your file and upload again, or continue to save only the valid rows.</p>
-        <?php endif; ?>
+    <div class="s1-rv-layout">
+        <section data-s1-review aria-label="Rows in your file">
+            <?php if ($counts['ok'] === 0): ?>
+                <div class="s1-alert s1-alert-bad" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong>Nothing can be saved from this file.</strong> Every row has an error or is already on the roster. Fix the file and upload it again.</div>
+                </div>
+            <?php elseif ($counts['error'] > 0): ?>
+                <div class="s1-alert s1-alert-warn" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong><?= $counts['error'] ?> row(s) have errors and will be skipped.</strong> Fix them in your file and upload again, or save only the <?= $counts['ok'] ?> valid row(s).</div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-s1-filter-mark="error" aria-pressed="false">Show errors only</button>
+                </div>
+            <?php else: ?>
+                <div class="s1-alert s1-alert-ok" style="margin-bottom: 14px;">
+                    <div class="s1-alert-body"><strong>Every row looks good.</strong> Check the list, then save.</div>
+                </div>
+            <?php endif; ?>
 
-        <form action="<?= BASE_URL ?>/s1/import_cadets.php" method="POST" style="display:inline;">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="confirm">
-            <button type="submit" class="btn btn-primary" <?= $counts['ok'] === 0 ? 'disabled' : '' ?>>Save <?= $counts['ok'] ?> cadet(s)</button>
-        </form>
-        <form action="<?= BASE_URL ?>/s1/import_cadets.php" method="POST" style="display:inline;">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn btn-secondary">Cancel</button>
-        </form>
-    </div>
+            <div class="s1-tiles">
+                <button type="button" class="s1-tile s1-tile-all" data-s1-filter-mark="all" aria-pressed="true"><span>All rows</span><strong><?= $total_rows ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-P" data-s1-filter-mark="ok" aria-pressed="false"><span>Ready to save</span><strong><?= $counts['ok'] ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-L" data-s1-filter-mark="duplicate" aria-pressed="false"><span>Duplicates</span><strong><?= $counts['duplicate'] ?></strong></button>
+                <button type="button" class="s1-tile s1-tile-A" data-s1-filter-mark="error" aria-pressed="false"><span>Errors</span><strong><?= $counts['error'] ?></strong></button>
+            </div>
 
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Line</th>
-                    <th>Full Name</th>
-                    <th>Gender</th>
-                    <th>Program</th>
-                    <th>Company</th>
-                    <th>Platoon</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($import['rows'] as $r): ?>
-                    <tr>
-                        <td><?= (int)$r['line'] ?></td>
-                        <td><?= e($r['full_name']) ?></td>
-                        <td><?= e($r['gender'] !== '' ? $r['gender'] : '-') ?></td>
-                        <td><?= e($r['program'] !== '' ? $r['program'] : '-') ?></td>
-                        <td><?= e($r['company'] !== '' ? $r['company'] : '-') ?></td>
-                        <td><?= e($r['platoon'] !== '' ? $r['platoon'] : '-') ?></td>
-                        <td>
-                            <?php if ($r['status'] === 'ok'): ?>
-                                <span class="badge badge-approved">Ready</span>
-                            <?php elseif ($r['status'] === 'duplicate'): ?>
-                                <span class="badge badge-pending">Duplicate</span> <?= e($r['note']) ?>
-                            <?php else: ?>
-                                <span class="badge badge-rejected">Error</span> <?= e($r['note']) ?>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+            <div class="s1-rv-tools">
+                <div class="s1-search">
+                    <svg class="s1-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    <input type="search" class="form-control" placeholder="Find a name" data-s1-marksearch aria-label="Find a name in this file" autocomplete="off">
+                </div>
+                <span class="s1-rv-count">Showing <strong data-s1-markshown><?= $total_rows ?></strong> of <?= $total_rows ?> &middot; File: <?= e($import['file']) ?></span>
+            </div>
+
+            <div class="s1-rv-wrap">
+                <table class="s1-table">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Full Name</th>
+                            <th>Gender</th>
+                            <th>Program</th>
+                            <th>Company</th>
+                            <th>Platoon</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($import['rows'] as $r): ?>
+                            <tr data-mark="<?= e($r['status']) ?>" data-name="<?= e(mb_strtolower($r['full_name'])) ?>"
+                                class="<?= $r['status'] === 'error' ? 's1-row-err' : ($r['status'] === 'duplicate' ? 's1-row-dup' : '') ?>">
+                                <td class="s1-cadet-code"><?= (int)$r['line'] ?></td>
+                                <td class="s1-cadet-name"><?= e($r['full_name']) ?></td>
+                                <td><?= e($r['gender'] !== '' ? $r['gender'] : '-') ?></td>
+                                <td><?= e($r['program'] !== '' ? $r['program'] : '-') ?></td>
+                                <td><?= e($r['company'] !== '' ? $r['company'] : '-') ?></td>
+                                <td><?= e($r['platoon'] !== '' ? $r['platoon'] : '-') ?></td>
+                                <td>
+                                    <?= s1_import_pill($r['status']) ?>
+                                    <?php if ($r['note'] !== ''): ?><div class="s1-res-note <?= $r['status'] === 'error' ? 'is-bad' : '' ?>"><?= e($r['note']) ?></div><?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <div class="s1-rv-empty" data-s1-markempty hidden>No row matches this view. Clear the search or pick another tile.</div>
+            </div>
+        </section>
+
+        <aside class="s1-rv-side" aria-label="Save or cancel">
+            <div class="s1-card s1-decide">
+                <h3>Ready to save?</h3>
+                <ul class="s1-checks">
+                    <li class="<?= $counts['ok'] > 0 ? 'ok' : 'bad is-bad' ?>"><?= s1_import_icon($counts['ok'] > 0 ? 'ok' : 'bad') ?><span><strong><?= $counts['ok'] ?></strong> cadet(s) will be saved</span></li>
+                    <?php if ($counts['ok'] > 0): ?>
+                        <li class="info"><?= s1_import_icon('info') ?><span><?= $placed_n ?> placed in a company, <?= $unassigned_n ?> will show as Unassigned on the roster</span></li>
+                    <?php endif; ?>
+                    <?php if ($counts['duplicate'] > 0): ?>
+                        <li class="info"><?= s1_import_icon('info') ?><span><?= $counts['duplicate'] ?> duplicate(s) skipped</span></li>
+                    <?php endif; ?>
+                    <?php if ($counts['error'] > 0): ?>
+                        <li class="bad is-bad"><?= s1_import_icon('bad') ?><span><?= $counts['error'] ?> row(s) with errors skipped</span></li>
+                    <?php endif; ?>
+                </ul>
+
+                <form action="<?= e($self) ?>" method="POST"
+                      data-s1-confirm="Save <?= (int)$counts['ok'] ?> cadet(s) to the roster? Rows with errors and duplicates are skipped."
+                      data-s1-confirm-title="Save imported cadets" data-s1-confirm-ok="Save">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="confirm">
+                    <button type="submit" class="btn btn-primary btn-block" <?= $counts['ok'] === 0 ? 'disabled' : '' ?>>Save <?= $counts['ok'] ?> cadet(s)</button>
+                </form>
+                <form action="<?= e($self) ?>" method="POST" style="margin-top: 8px;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="cancel">
+                    <button type="submit" class="btn btn-secondary btn-block">Cancel and start over</button>
+                </form>
+                <?php if ($counts['error'] > 0): ?>
+                    <hr>
+                    <a href="<?= e($self) ?>?errors=1" class="btn btn-secondary btn-block">Download rows to fix (CSV)</a>
+                    <p class="help">Fix the Reason column's problems in that file, then upload it as a new import.</p>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($fix_hints): ?>
+                <div class="s1-card">
+                    <h3>How to fix the errors</h3>
+                    <ul class="s1-fixlist">
+                        <?php foreach ($fix_hints as [$n, $hint]): ?>
+                            <li><b><?= $n ?></b><span><?= e($hint) ?></span></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+        </aside>
     </div>
 
 <?php endif; ?>
+
+<script src="<?= BASE_URL ?>/assets/js/s1_manage.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

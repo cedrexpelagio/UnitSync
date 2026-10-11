@@ -212,192 +212,184 @@ function cadets_page_url(string $q, int $target_page): string {
 $page_title = 'Platoon Cadets';
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/leader.css">
 
-<div class="content-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-    <div>
-        <h1>Platoon Cadets</h1>
-        <p style="margin: 0; color: var(--gray-700);">
-            <strong>Company <?= e($company_name) ?> &mdash; <?= e($platoon_name) ?></strong>
-            <?php if ($active_term): ?>
-                &nbsp;|&nbsp; Term: <span style="color: var(--green-700); font-weight: 600;"><?= e($active_term['name']) ?></span>
-            <?php endif; ?>
-        </p>
+<?php
+$svg = function (string $inner): string {
+    return '<svg class="pl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $inner . '</svg>';
+};
+$ico = [
+    'users'  => $svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    'alert'  => $svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+    'plus'   => $svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+    'risk'   => '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    'search' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+];
+?>
+
+<div class="pl">
+
+    <!-- Hero -->
+    <div class="pl-hero">
+        <div>
+            <div class="pl-eyebrow">Platoon leader</div>
+            <h1>Platoon cadets</h1>
+            <p class="pl-sub">
+                <strong>Company <?= e($company_name) ?> &mdash; <?= e($platoon_name) ?></strong>
+                <?php if ($active_term): ?>
+                    &nbsp;|&nbsp; Term: <span class="pl-term"><?= e($active_term['name']) ?></span>
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="pl-hero-actions">
+            <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary"><?= $ico['plus'] ?> Add cadet</a>
+        </div>
     </div>
-    <div>
-        <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary">
-            + Add Cadet
-        </a>
-    </div>
-</div>
 
 <?php if (!$active_term): ?>
-    <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; margin-bottom: 24px;">
-        <h4 style="color: var(--warning); margin-bottom: 8px;">No Active Term</h4>
-        <p style="font-size: 14px; color: var(--gray-700); margin: 0;">
-            There is currently no active academic term set up in the system. Cadet rosters and enrollments require an active term.
-        </p>
+
+    <div class="pl-notice pl-notice--warn" role="alert">
+        <?= $ico['alert'] ?>
+        <div class="pl-notice-body">
+            <span class="pl-notice-title">No active academic term</span>
+            <p>Rosters and enrollments need an active term. Ask your administrator to activate one.</p>
+        </div>
     </div>
+
 <?php elseif (!$platoon_id || !$company_id): ?>
-    <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; margin-bottom: 24px;">
-        <h4 style="color: var(--warning); margin-bottom: 8px;">Unassigned Officer</h4>
-        <p style="font-size: 14px; color: var(--gray-700); margin: 0;">
-            Your account is not assigned to a company and platoon. Please contact your system administrator.
-        </p>
+
+    <div class="pl-notice pl-notice--warn" role="alert">
+        <?= $ico['alert'] ?>
+        <div class="pl-notice-body">
+            <span class="pl-notice-title">Your account has no platoon yet</span>
+            <p>You are not assigned to a company and platoon. Please contact your system administrator.</p>
+        </div>
     </div>
+
 <?php else: ?>
 
-    <!-- Search & Filter Bar -->
-    <div class="card" style="margin-bottom: 20px; padding: 16px 20px;">
-        <form method="GET" action="<?= BASE_URL ?>/leader/cadets.php" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
-            <div class="form-group" style="margin: 0; flex: 1; min-width: 240px;">
-                <label for="q" style="font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; display: block;">Search Cadets</label>
-                <input type="text" id="q" name="q" class="form-control" value="<?= e($q) ?>" placeholder="Search by name, student number, or cadet code...">
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button type="submit" class="btn btn-primary btn-sm" style="padding: 9px 16px;">Search</button>
+    <!-- Search -->
+    <div class="pl-toolbar-simple">
+        <form method="GET" action="<?= BASE_URL ?>/leader/cadets.php" role="search">
+            <div class="pl-search">
+                <?= $ico['search'] ?>
+                <input type="search" id="q" name="q" class="form-control" value="<?= e($q) ?>"
+                       placeholder="Search by name, student number, or cadet code"
+                       aria-label="Search cadets" autocomplete="off">
                 <?php if ($q !== ''): ?>
-                    <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-sm" style="padding: 9px 16px;">Reset</a>
+                    <a href="<?= BASE_URL ?>/leader/cadets.php" class="pl-search-clear" aria-label="Clear search">&times;</a>
                 <?php endif; ?>
             </div>
+            <button type="submit" class="btn btn-primary">Search</button>
         </form>
     </div>
 
-    <!-- Results Count -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 14px; color: var(--gray-700);">
+    <!-- Results bar -->
+    <div class="pl-bar">
         <div>
             <?php if ($total > 0): ?>
-                Showing <strong><?= $from ?>&ndash;<?= $to ?></strong> of <strong><?= $total ?></strong> cadet(s)
+                Showing <strong><?= (int)$from ?>&ndash;<?= (int)$to ?></strong> of <strong><?= (int)$total ?></strong> cadet(s)
             <?php else: ?>
                 Showing <strong>0</strong> cadets
             <?php endif; ?>
             <?php if ($q !== ''): ?>
-                for query <em style="color: var(--green-900);">"<?= e($q) ?>"</em>
+                for <em style="color: var(--green-900);">&ldquo;<?= e($q) ?>&rdquo;</em>
             <?php endif; ?>
         </div>
     </div>
 
-    <!-- Table of Cadets -->
     <?php if (empty($cadets)): ?>
-        <div class="empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gray-500); margin-bottom: 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+
+        <div class="pl-empty">
+            <?= $ico['users'] ?>
             <?php if ($q !== ''): ?>
-                <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 6px;">No Matching Cadets Found</h3>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">No cadets in your platoon matched your search keyword.</p>
-                <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-sm">Clear Search Filter</a>
+                <h3>No cadets match your search</h3>
+                <p>Nobody in your platoon matched &ldquo;<?= e($q) ?>&rdquo;. Check the spelling or try a cadet code.</p>
+                <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-sm">Clear search</a>
             <?php else: ?>
-                <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 6px;">No Cadets Enrolled Yet</h3>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">There are no cadets enrolled in your platoon for this active term.</p>
-                <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary btn-sm">+ Enroll First Cadet</a>
+                <h3>No cadets enrolled yet</h3>
+                <p>Cadets you enroll will appear here for the active term.</p>
+                <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary btn-sm">Enroll your first cadet</a>
             <?php endif; ?>
         </div>
-    <?php else: ?>
-        <div class="formula-banner">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <div>
-                <strong>Attendance Formula:</strong> <code>(Present + Late) &divide; (Approved Sessions Held &minus; Excused) &times; 100</code>.
-                Only fully approved sessions count. Cancelled sessions are excluded. Cadets below <strong><?= (int)$at_risk_threshold ?>%</strong> are flagged as <strong>At Risk</strong>.
-            </div>
-        </div>
 
-        <div class="table-responsive">
-            <table class="data-table">
+    <?php else: ?>
+
+        <details class="pl-help">
+            <summary>How attendance % is calculated</summary>
+            <div>
+                <code>(Present + Late) &divide; (Approved Sessions Held &minus; Excused) &times; 100</code><br>
+                Only fully approved sessions count and cancelled sessions are left out.
+                Cadets below <strong><?= (int)$at_risk_threshold ?>%</strong> are flagged <strong>At risk</strong>.
+            </div>
+        </details>
+
+        <div class="table-responsive pl-table-wrap">
+            <table class="data-table pl-table">
                 <thead>
                     <tr>
-                        <th>Cadet Code</th>
-                        <th>Full Name</th>
+                        <th>Cadet code</th>
+                        <th>Full name</th>
                         <th>Program</th>
                         <th>Gender</th>
-                        <th>Student Number</th>
+                        <th>Student number</th>
                         <th>Status</th>
-                        <th>
-                            Attendance %
-                            <span class="formula-info-btn" title="Formula: (Present + Late) &divide; (Approved Sessions Held &minus; Excused) &times; 100">?</span>
-                        </th>
+                        <th>Attendance</th>
                         <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($cadets as $c): ?>
                         <?php
-                            // Full name format: Last, First, M.I.
                             $mi = '';
                             if (!empty($c['middle_name'])) {
                                 $mi = ' ' . mb_strtoupper(mb_substr(trim($c['middle_name']), 0, 1)) . '.';
                             }
                             $full_name = $c['last_name'] . ', ' . $c['first_name'] . $mi;
 
-                            // Badge class for cadet status
                             $badge_class = 'badge-active';
-                            if ($c['status'] === 'dropped') {
-                                $badge_class = 'badge-dropped';
-                            } elseif ($c['status'] === 'transferred') {
-                                $badge_class = 'badge-transferred';
-                            } elseif ($c['status'] === 'graduated') {
-                                $badge_class = 'badge-graduated';
-                            }
+                            if ($c['status'] === 'dropped')          $badge_class = 'badge-dropped';
+                            elseif ($c['status'] === 'transferred')  $badge_class = 'badge-transferred';
+                            elseif ($c['status'] === 'graduated')    $badge_class = 'badge-graduated';
 
-                            // Attendance calculation for this cadet
                             $cadet_summary = $attendance_summaries[(int)$c['id']] ?? null;
-                            $cadet_pct = $cadet_summary['percentage'] ?? null;
-                            $is_at_risk = ($cadet_pct !== null && $cadet_pct < $at_risk_threshold);
+                            $cadet_pct     = $cadet_summary['percentage'] ?? null;
+                            $is_at_risk    = ($cadet_pct !== null && $cadet_pct < $at_risk_threshold);
                         ?>
                         <tr>
-                            <td>
-                                <strong style="font-family: monospace; font-size: 13px; color: var(--green-900);">
-                                    <?= e($c['cadet_code']) ?>
-                                </strong>
+                            <td data-label="Cadet code"><span class="pl-code"><?= e($c['cadet_code']) ?></span></td>
+                            <td data-label="Name"><span class="pl-name"><?= e($full_name) ?></span></td>
+                            <td data-label="Program"><?= !empty($c['program_code']) ? e($c['program_code']) : '<span class="pl-dash">&mdash;</span>' ?></td>
+                            <td data-label="Gender"><?= e($c['gender']) ?></td>
+                            <td data-label="Student no."><?= e($c['student_number']) ?></td>
+                            <td data-label="Status">
+                                <span class="badge <?= $badge_class ?>"><?= e($status_labels[$c['status']] ?? ucfirst($c['status'])) ?></span>
                             </td>
-                            <td>
-                                <strong><?= e($full_name) ?></strong>
-                            </td>
-                            <td>
-                                <?= e($c['program_code'] ?? '&mdash;') ?>
-                            </td>
-                            <td>
-                                <?= e($c['gender']) ?>
-                            </td>
-                            <td>
-                                <?= e($c['student_number']) ?>
-                            </td>
-                            <td>
-                                <span class="badge <?= $badge_class ?>">
-                                    <?= e($status_labels[$c['status']] ?? ucfirst($c['status'])) ?>
-                                </span>
-                            </td>
-                            <td>
+                            <td data-label="Attendance">
                                 <?php if ($cadet_pct === null): ?>
-                                    <span style="color: var(--gray-500); font-weight: 500;" title="No approved sessions held yet or denominator is zero">&mdash;</span>
+                                    <span class="pl-dash" title="No approved sessions held yet">&mdash;</span>
                                 <?php else: ?>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <strong style="color: <?= $is_at_risk ? 'var(--error)' : 'var(--green-900)' ?>; font-size: 13px;">
-                                            <?= number_format($cadet_pct, 1) ?>%
-                                        </strong>
+                                    <div class="pl-pct <?= $is_at_risk ? 'is-risk' : '' ?>">
+                                        <strong><?= number_format($cadet_pct, 1) ?>%</strong>
+                                        <span class="pl-pct-bar" aria-hidden="true"><span style="--pl-pct: <?= (int)min(100, max(0, round($cadet_pct))) ?>%;"></span></span>
                                         <?php if ($is_at_risk): ?>
-                                            <span class="badge badge-at-risk" title="At Risk: Attendance is <?= number_format($cadet_pct, 1) ?>%, below the <?= (int)$at_risk_threshold ?>% threshold">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                                At Risk
-                                            </span>
+                                            <span class="badge badge-at-risk" title="Below the <?= (int)$at_risk_threshold ?>% threshold"><?= $ico['risk'] ?> At risk</span>
                                         <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
                             </td>
-                            <td style="text-align: right;">
+                            <td class="pl-cell-actions" style="text-align: right;">
                                 <div class="table-actions" style="justify-content: flex-end;">
-                                    <a href="<?= BASE_URL ?>/leader/cadet_edit.php?id=<?= (int)$c['id'] ?>" class="btn btn-sm btn-secondary">
-                                        Edit
-                                    </a>
-                                    <form method="POST" action="<?= BASE_URL ?>/leader/cadets.php" class="remove-cadet-form" style="display: inline;">
+                                    <a href="<?= BASE_URL ?>/leader/cadet_edit.php?id=<?= (int)$c['id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
+                                    <form method="POST" action="<?= BASE_URL ?>/leader/cadets.php" style="display: inline;">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="remove_cadet">
                                         <input type="hidden" name="cadet_id" value="<?= (int)$c['id'] ?>">
                                         <input type="hidden" name="return_q" value="<?= e($q) ?>">
                                         <input type="hidden" name="return_page" value="<?= (int)$page ?>">
-                                        <button type="button" 
-                                                class="btn btn-sm btn-danger btn-remove-cadet"
+                                        <button type="button" class="btn btn-sm btn-danger btn-remove-cadet"
                                                 data-name="<?= e($full_name) ?>"
-                                                data-code="<?= e($c['cadet_code']) ?>">
-                                            Remove
-                                        </button>
+                                                data-code="<?= e($c['cadet_code']) ?>">Remove</button>
                                     </form>
                                 </div>
                             </td>
@@ -407,59 +399,26 @@ require_once __DIR__ . '/../includes/header.php';
             </table>
         </div>
 
-        <!-- Pagination -->
         <?php if ($pages > 1): ?>
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px;">
-                <div style="font-size: 14px; color: var(--gray-700);">
-                    Page <strong><?= $page ?></strong> of <strong><?= $pages ?></strong>
-                </div>
-                <div style="display: flex; gap: 8px;">
+            <nav class="pl-pager" aria-label="Pagination">
+                <div>Page <strong><?= (int)$page ?></strong> of <strong><?= (int)$pages ?></strong></div>
+                <div class="pl-pager-btns">
                     <?php if ($page > 1): ?>
-                        <a href="<?= e(cadets_page_url($q, $page - 1)) ?>" class="btn btn-sm btn-secondary">
-                            &laquo; Previous
-                        </a>
+                        <a href="<?= e(cadets_page_url($q, $page - 1)) ?>" class="btn btn-sm btn-secondary">&laquo; Previous</a>
                     <?php endif; ?>
                     <?php if ($page < $pages): ?>
-                        <a href="<?= e(cadets_page_url($q, $page + 1)) ?>" class="btn btn-sm btn-secondary">
-                            Next &raquo;
-                        </a>
+                        <a href="<?= e(cadets_page_url($q, $page + 1)) ?>" class="btn btn-sm btn-secondary">Next &raquo;</a>
                     <?php endif; ?>
                 </div>
-            </div>
+            </nav>
         <?php endif; ?>
 
     <?php endif; ?>
 
 <?php endif; ?>
 
-<script>
-// Step C: Confirmation Modal for Cadet Removal
-document.addEventListener('DOMContentLoaded', function () {
-    const removeButtons = document.querySelectorAll('.btn-remove-cadet');
-    removeButtons.forEach(function (button) {
-        button.addEventListener('click', async function (e) {
-            e.preventDefault();
-            const form = button.closest('form');
-            const cadetName = button.getAttribute('data-name') || 'this cadet';
-            const cadetCode = button.getAttribute('data-code') || '';
+</div>
 
-            const confirmed = await showConfirm({
-                title: 'Remove Cadet from Platoon',
-                message: `<p style="margin-bottom: 12px;">Are you sure you want to remove <strong>${cadetName}</strong> (${cadetCode}) from your platoon?</p>
-                          <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 6px; padding: 10px 12px; color: #C53030; font-size: 13px;">
-                              <strong>Important consequence:</strong> The cadet becomes <strong>Unassigned</strong>. Only S1 can reassign this cadet.
-                          </div>`,
-                confirmText: 'Remove Cadet',
-                cancelText: 'Cancel',
-                isDanger: true
-            });
-
-            if (confirmed && form) {
-                form.submit();
-            }
-        });
-    });
-});
-</script>
+<script src="<?= BASE_URL ?>/assets/js/leader.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

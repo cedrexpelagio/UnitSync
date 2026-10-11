@@ -432,653 +432,390 @@ foreach ($cadets as $cadet) {
 $page_title = 'Take Attendance';
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/leader.css">
 
-<div class="content-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+<?php
+$svg = function (string $inner, string $cls = 'pl-icon'): string {
+    return '<svg class="' . $cls . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $inner . '</svg>';
+};
+$ico = [
+    'users'   => $svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    'alert'   => $svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+    'warn'    => $svg('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+    'lock'    => $svg('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
+    'check'   => $svg('<polyline points="20 6 9 17 4 12"/>'),
+    'cal'     => $svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+    'left'    => $svg('<polyline points="15 18 9 12 15 6"/>'),
+    'right'   => $svg('<polyline points="9 18 15 12 9 6"/>'),
+    'chevron' => $svg('<polyline points="6 9 12 15 18 9"/>', 'pl-icon pl-picker-chevron'),
+    'search'  => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    'x'       => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+];
+
+// Badge (class + label) for a session row
+$session_badge = function (array $s): array {
+    if ($s['status'] === 'cancelled')                    return ['badge-cancelled', 'Cancelled'];
+    switch ($s['submission_state'] ?? null) {
+        case 'draft':     return ['badge-draft', 'Draft'];
+        case 'submitted': return ['badge-submitted', 'Submitted'];
+        case 'returned':  return ['badge-returned', 'Returned'];
+        case 'approved':  return ['badge-approved', 'Approved'];
+    }
+    return ['badge-deactivated', 'Not started'];
+};
+
+$fmt_date = fn(string $d): string => date('M j, Y', strtotime($d));
+
+// Previous / next usable session (skips cancelled)
+$prev_id = 0;
+$next_id = 0;
+if ($selected_session) {
+    $sel_idx = 0;
+    foreach ($sessions as $i => $s) {
+        if ((int)$s['id'] === (int)$selected_session['id']) { $sel_idx = $i; break; }
+    }
+    for ($i = $sel_idx - 1; $i >= 0; $i--) {
+        if ($sessions[$i]['status'] !== 'cancelled') { $prev_id = (int)$sessions[$i]['id']; break; }
+    }
+    for ($i = $sel_idx + 1; $i < count($sessions); $i++) {
+        if ($sessions[$i]['status'] !== 'cancelled') { $next_id = (int)$sessions[$i]['id']; break; }
+    }
+}
+
+$page_url      = BASE_URL . '/leader/attendance.php';
+$progress_pct  = $count_total > 0 ? (int)round(($count_marked / $count_total) * 100) : 0;
+$sub_state     = $selected_session['submission_state'] ?? null;
+?>
+
+<div class="pl">
+
+    <!-- Hero -->
+    <div class="pl-hero">
         <div>
-            <h1>Take Attendance</h1>
-            <p style="margin: 0; color: var(--gray-700);">
+            <div class="pl-eyebrow">Platoon leader</div>
+            <h1>Take attendance</h1>
+            <p class="pl-sub">
                 <strong>Company <?= e($company_name) ?> &mdash; <?= e($platoon_name) ?></strong>
                 <?php if ($active_term): ?>
-                    &nbsp;|&nbsp; Term: <span style="color: var(--green-700); font-weight: 600;"><?= e($active_term['name']) ?></span>
+                    &nbsp;|&nbsp; Term: <span class="pl-term"><?= e($active_term['name']) ?></span>
                 <?php endif; ?>
             </p>
         </div>
-        <div>
-            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-sm">
-                View Platoon Cadets
-            </a>
+        <div class="pl-hero-actions">
+            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary"><?= $ico['users'] ?> Platoon cadets</a>
         </div>
     </div>
-</div>
 
 <?php if (!$active_term): ?>
-    <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; margin-bottom: 24px;">
-        <h4 style="color: var(--warning); margin-bottom: 8px;">No Active Academic Term</h4>
-        <p style="font-size: 14px; color: var(--gray-700); margin: 0;">
-            There is currently no active academic term configured in the system. Attendance sessions cannot be loaded.
-        </p>
+
+    <div class="pl-notice pl-notice--warn" role="alert">
+        <?= $ico['alert'] ?>
+        <div class="pl-notice-body">
+            <span class="pl-notice-title">No active academic term</span>
+            <p>Sessions can&rsquo;t load until an administrator activates a term.</p>
+        </div>
     </div>
+
 <?php elseif (!$platoon_id || !$company_id): ?>
-    <div style="background-color: var(--gold-100); border: 1px solid #F6E05E; border-radius: var(--radius-default); padding: 20px; margin-bottom: 24px;">
-        <h4 style="color: var(--warning); margin-bottom: 8px;">Unassigned Officer</h4>
-        <p style="font-size: 14px; color: var(--gray-700); margin: 0;">
-            Your account is not assigned to a company and platoon. Please contact your administrator.
-        </p>
+
+    <div class="pl-notice pl-notice--warn" role="alert">
+        <?= $ico['alert'] ?>
+        <div class="pl-notice-body">
+            <span class="pl-notice-title">Your account has no platoon yet</span>
+            <p>You are not assigned to a company and platoon. Please contact your administrator.</p>
+        </div>
     </div>
+
 <?php elseif (empty($sessions)): ?>
-    <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gray-500); margin-bottom: 12px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-        <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 6px;">No Training Sessions Found</h3>
-        <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 0;">
-            There are no training sessions configured for <?= e($active_term['name']) ?> yet. Please contact your administrator.
-        </p>
+
+    <div class="pl-empty">
+        <?= $ico['cal'] ?>
+        <h3>No training sessions yet</h3>
+        <p>There are no sessions set up for <?= e($active_term['name']) ?>. Please contact your administrator.</p>
     </div>
+
 <?php else: ?>
 
-    <!-- Session Selector Strip -->
-    <div style="margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--gray-700);">
-        Select Training Session:
-    </div>
-    <div class="attendance-session-strip">
-        <?php foreach ($sessions as $s): ?>
-            <?php
-                $s_is_active   = ($selected_session && (int)$s['id'] === (int)$selected_session['id']);
-                $s_cancelled   = ($s['status'] === 'cancelled');
-                $s_future      = ($s['session_date'] > $today_manila);
-                $s_sub_state   = $s['submission_state'] ?? null;
+    <!-- Session picker -->
+    <div class="pl-session-bar">
+        <a class="pl-nav-btn" href="<?= $prev_id ? $page_url . '?session=' . $prev_id : '#' ?>"
+           aria-label="Previous session" <?= $prev_id ? '' : 'aria-disabled="true" tabindex="-1"' ?>><?= $ico['left'] ?></a>
 
-                // Determine badge
-                $badge_class = 'badge-deactivated';
-                $badge_label = 'Not started';
-
-                if ($s_cancelled) {
-                    $badge_class = 'badge-cancelled';
-                    $badge_label = 'Cancelled';
-                } elseif ($s_sub_state === 'draft') {
-                    $badge_class = 'badge-draft';
-                    $badge_label = 'Draft';
-                } elseif ($s_sub_state === 'submitted') {
-                    $badge_class = 'badge-submitted';
-                    $badge_label = 'Submitted';
-                } elseif ($s_sub_state === 'returned') {
-                    $badge_class = 'badge-returned';
-                    $badge_label = 'Returned';
-                } elseif ($s_sub_state === 'approved') {
-                    $badge_class = 'badge-approved';
-                    $badge_label = 'Approved';
-                }
-
-                $classes = ['session-card-pill'];
-                if ($s_is_active) $classes[] = 'active';
-                if ($s_cancelled) $classes[] = 'disabled';
-            ?>
-            <a href="<?= BASE_URL ?>/leader/attendance.php?session=<?= (int)$s['id'] ?>" class="<?= implode(' ', $classes) ?>">
-                <div class="session-date">
-                    <?= date('M d, Y', strtotime($s['session_date'])) ?>
-                    <?php if ($s_future): ?>
-                        <span style="color: var(--gray-500); font-weight: normal;">(Future)</span>
-                    <?php endif; ?>
-                </div>
-                <div class="session-label">
-                    <?= e($s['label']) ?>
-                </div>
-                <div style="margin-top: auto; padding-top: 4px;">
-                    <span class="badge <?= $badge_class ?>" style="font-size: 11px;">
-                        <?= e($badge_label) ?>
+        <details class="pl-picker">
+            <summary aria-label="Choose a training session">
+                <span class="pl-picker-text">
+                    <span class="pl-picker-date">
+                        <?= e($fmt_date($selected_session['session_date'])) ?><?= $is_future ? ' (upcoming)' : '' ?>
                     </span>
-                </div>
-            </a>
-        <?php endforeach; ?>
+                    <span class="pl-picker-label"><?= e($selected_session['label']) ?></span>
+                </span>
+                <?php [$sel_badge_class, $sel_badge_label] = $session_badge($selected_session); ?>
+                <span class="badge <?= $sel_badge_class ?>"><?= e($sel_badge_label) ?></span>
+                <?= $ico['chevron'] ?>
+            </summary>
+
+            <ul class="pl-picker-list">
+                <?php foreach ($sessions as $s): ?>
+                    <?php
+                        [$b_class, $b_label] = $session_badge($s);
+                        $item_cls = 'pl-picker-item';
+                        if ((int)$s['id'] === (int)$selected_session['id']) $item_cls .= ' is-active';
+                        if ($s['status'] === 'cancelled') $item_cls .= ' is-disabled';
+                    ?>
+                    <li>
+                        <a class="<?= $item_cls ?>" href="<?= $page_url ?>?session=<?= (int)$s['id'] ?>">
+                            <span class="pl-picker-text">
+                                <span class="pl-picker-date">
+                                    <?= e($fmt_date($s['session_date'])) ?><?= $s['session_date'] > $today_manila ? ' (upcoming)' : '' ?>
+                                </span>
+                                <span class="pl-picker-label"><?= e($s['label']) ?></span>
+                            </span>
+                            <span class="badge <?= $b_class ?>"><?= e($b_label) ?></span>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </details>
+
+        <a class="pl-nav-btn" href="<?= $next_id ? $page_url . '?session=' . $next_id : '#' ?>"
+           aria-label="Next session" <?= $next_id ? '' : 'aria-disabled="true" tabindex="-1"' ?>><?= $ico['right'] ?></a>
     </div>
 
-    <?php if ($selected_session): ?>
-
-        <!-- Notice Banners based on Session State -->
-        <?php if ($is_cancelled): ?>
-            <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: var(--radius-default); padding: 16px 20px; margin-bottom: 20px;">
-                <h4 style="color: var(--error); margin-bottom: 4px;">Session Cancelled</h4>
-                <p style="font-size: 13px; color: var(--gray-700); margin: 0;">
-                    This training session was marked as cancelled. Attendance marking is disabled.
-                </p>
+    <!-- Session state notice -->
+    <?php if ($is_cancelled): ?>
+        <div class="pl-notice pl-notice--danger" role="status">
+            <?= $ico['alert'] ?>
+            <div class="pl-notice-body">
+                <span class="pl-notice-title">Session cancelled</span>
+                <p>This session was cancelled, so attendance can&rsquo;t be marked.</p>
             </div>
-        <?php elseif ($is_future): ?>
-            <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-default); padding: 16px 20px; margin-bottom: 20px;">
-                <h4 style="color: #1D4ED8; margin-bottom: 4px;">Future Training Session (Locked)</h4>
-                <p style="font-size: 13px; color: var(--gray-700); margin: 0;">
-                    This session is scheduled for <strong><?= date('F j, Y', strtotime($selected_session['session_date'])) ?></strong>. Attendance can only be taken on or after the scheduled date.
-                </p>
+        </div>
+    <?php elseif ($is_future): ?>
+        <div class="pl-notice pl-notice--info" role="status">
+            <?= $ico['lock'] ?>
+            <div class="pl-notice-body">
+                <span class="pl-notice-title">Opens on <?= e(date('F j, Y', strtotime($selected_session['session_date']))) ?></span>
+                <p>Attendance can only be taken on or after the session date.</p>
             </div>
-        <?php elseif ($is_approved): ?>
-            <div style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-default); padding: 16px 20px; margin-bottom: 20px;">
-                <h4 style="color: #065F46; margin-bottom: 4px;">Attendance Approved & Locked</h4>
-                <p style="font-size: 13px; color: var(--gray-700); margin: 0;">
-                    This session's attendance sheet has received final approval from S1 leadership and is locked in read-only mode.
-                </p>
+        </div>
+    <?php elseif ($is_approved): ?>
+        <div class="pl-notice pl-notice--ok" role="status">
+            <?= $ico['lock'] ?>
+            <div class="pl-notice-body">
+                <span class="pl-notice-title">Approved and locked</span>
+                <p>S1 approved this sheet. It is now read-only.</p>
             </div>
-        <?php elseif ($selected_session['submission_state'] === 'submitted'): ?>
-            <div class="banner-notice banner-submitted-warning">
-                <div class="banner-notice-header">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    Attendance Submitted (Under S1 Review)
-                </div>
-                <div>
-                    This attendance sheet has been submitted to S1. You may still make edits if needed, but <strong>saving any changes will clear approvals already given by S1</strong> and require re-verification.
-                </div>
+        </div>
+    <?php elseif ($sub_state === 'submitted'): ?>
+        <div class="pl-notice pl-notice--warn" role="status">
+            <?= $ico['warn'] ?>
+            <div class="pl-notice-body">
+                <span class="pl-notice-title">Submitted and under S1 review</span>
+                <p>You can still edit, but <strong>saving a change clears any S1 approval already given</strong> and the sheet needs review again.</p>
             </div>
-            <?php if ($count_unmarked > 0): ?>
-                <div class="banner-notice" style="background-color: #FEF2F2; border: 1px solid #F87171; color: #991B1B;">
-                    <div class="banner-notice-header">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                        Unmarked Cadets in Submitted Session
-                    </div>
-                    <div>
-                        There are <strong><?= $count_unmarked ?> unmarked cadet(s)</strong> (e.g. recently enrolled into the platoon). Please mark them and resubmit the sheet so S1 can approve.
-                    </div>
+        </div>
+        <?php if ($count_unmarked > 0): ?>
+            <div class="pl-notice pl-notice--danger" role="alert">
+                <?= $ico['warn'] ?>
+                <div class="pl-notice-body">
+                    <span class="pl-notice-title"><?= (int)$count_unmarked ?> cadet(s) not marked</span>
+                    <p>These may be recent additions to the platoon. Mark them, then submit again.</p>
                 </div>
-            <?php endif; ?>
-        <?php elseif ($selected_session['submission_state'] === 'returned'): ?>
-            <div class="banner-notice banner-returned-alert">
-                <div class="banner-notice-header">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    Attendance Returned by S1
-                </div>
-                <div style="margin-bottom: 6px;">
-                    This attendance submission was returned for correction. Please review the remarks, update the sheet, and resubmit.
-                </div>
-                <?php if (!empty($selected_session['submission_remarks'])): ?>
-                    <div style="background-color: var(--white); border: 1px dashed #F59E0B; padding: 10px 14px; border-radius: 6px; font-size: 13px; color: #92400E;">
-                        <strong>S1 Remarks:</strong> <?= nl2br(e($selected_session['submission_remarks'])) ?>
-                    </div>
-                <?php endif; ?>
             </div>
         <?php endif; ?>
+    <?php elseif ($sub_state === 'returned'): ?>
+        <div class="pl-notice pl-notice--warn" role="alert">
+            <?= $ico['warn'] ?>
+            <div class="pl-notice-body">
+                <span class="pl-notice-title">Returned by S1 for correction</span>
+                <p>Update the sheet, then submit it again.</p>
+                <?php if (!empty($selected_session['submission_remarks'])): ?>
+                    <div class="pl-remarks"><strong>S1 remarks:</strong> <?= nl2br(e($selected_session['submission_remarks'])) ?></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 
-        <!-- Attendance Sheet Header & Actions Toolbar -->
-        <div class="attendance-sheet-header">
-            <div>
-                <h2 style="font-size: 18px; color: var(--green-900); margin-bottom: 4px;">
-                    <?= e($selected_session['label']) ?> &mdash; <?= date('F j, Y', strtotime($selected_session['session_date'])) ?>
-                </h2>
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <div class="att-counter-pill" id="counter-pill">
-                        <span>Marked: <strong id="cnt-marked" style="color: var(--green-900);"><?= $count_marked ?></strong> / <?= $count_total ?></span>
-                        <span style="color: var(--gray-400);">|</span>
-                        <span>Unmarked: <strong id="cnt-unmarked" style="color: <?= $count_unmarked > 0 ? 'var(--warning)' : 'var(--gray-700)' ?>;"><?= $count_unmarked ?></strong></span>
-                    </div>
+    <?php if (empty($cadets)): ?>
 
-                    <?php if ($is_editable): ?>
-                        <div class="save-indicator" id="save-indicator">
-                            <span class="save-indicator-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor;"></span>
-                            <span id="save-status-text">Draft ready</span>
-                        </div>
-                    <?php endif; ?>
+        <div class="pl-empty">
+            <?= $ico['users'] ?>
+            <h3>No active cadets in your platoon</h3>
+            <p>There is nobody to mark yet. Enroll cadets and they will show up here.</p>
+            <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary btn-sm">Enroll cadets</a>
+        </div>
+
+    <?php else: ?>
+
+        <!-- Attendance sheet -->
+        <form id="attendance-sheet-form"
+              class="pl-card pl-sheet-card"
+              method="POST"
+              action="<?= $page_url ?>?session=<?= (int)$selected_session['id'] ?>"
+              data-pl-sheet
+              data-editable="<?= $is_editable ? '1' : '0' ?>"
+              data-submitted="<?= $sub_state === 'submitted' ? '1' : '0' ?>"
+              data-session-id="<?= (int)$selected_session['id'] ?>"
+              data-label="<?= e($selected_session['label']) ?>"
+              data-save-url="<?= BASE_URL ?>/api/attendance_save.php">
+            <?= csrf_field() ?>
+            <input type="hidden" name="session_id" value="<?= (int)$selected_session['id'] ?>">
+
+            <!-- Title + progress -->
+            <div class="pl-sheet-top">
+                <div class="pl-sheet-title">
+                    <h2><?= e($selected_session['label']) ?> &mdash; <?= e(date('F j, Y', strtotime($selected_session['session_date']))) ?></h2>
+                </div>
+                <div class="pl-progress-wrap">
+                    <div class="pl-progress <?= $count_unmarked === 0 ? 'is-done' : '' ?>"
+                         role="progressbar" aria-label="Cadets marked"
+                         aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?= $progress_pct ?>"
+                         data-progress style="--pl-pct: <?= $progress_pct ?>%;"><span></span></div>
+                    <span class="pl-progress-text"><span data-count="marked"><?= (int)$count_marked ?></span> of <?= (int)$count_total ?> marked</span>
+                </div>
+            </div>
+
+            <!-- Filters + search -->
+            <div class="pl-toolbar">
+                <div class="pl-filters" role="group" aria-label="Filter cadets">
+                    <button type="button" class="pl-filter" data-filter="all" aria-pressed="true">All <span class="pl-filter-count" data-count="all"><?= (int)$count_total ?></span></button>
+                    <button type="button" class="pl-filter" data-filter="unmarked" aria-pressed="false">Not marked <span class="pl-filter-count" data-count="unmarked"><?= (int)$count_unmarked ?></span></button>
+                    <button type="button" class="pl-filter" data-filter="P" aria-pressed="false" style="--dot: var(--pl-p);"><i></i>Present <span class="pl-filter-count" data-count="P"><?= (int)$count_p ?></span></button>
+                    <button type="button" class="pl-filter" data-filter="A" aria-pressed="false" style="--dot: var(--pl-a);"><i></i>Absent <span class="pl-filter-count" data-count="A"><?= (int)$count_a ?></span></button>
+                    <button type="button" class="pl-filter" data-filter="L" aria-pressed="false" style="--dot: var(--pl-l);"><i></i>Late <span class="pl-filter-count" data-count="L"><?= (int)$count_l ?></span></button>
+                    <button type="button" class="pl-filter" data-filter="E" aria-pressed="false" style="--dot: var(--pl-e);"><i></i>Excused <span class="pl-filter-count" data-count="E"><?= (int)$count_e ?></span></button>
+                </div>
+                <div class="pl-search">
+                    <?= $ico['search'] ?>
+                    <input type="search" class="form-control" data-search placeholder="Find a cadet" aria-label="Find a cadet by name or code" autocomplete="off">
                 </div>
             </div>
 
             <?php if ($is_editable): ?>
-                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-mark-all-present">
-                        Mark All Present (P)
-                    </button>
-                    <button type="submit" form="attendance-sheet-form" name="form_action" value="save_draft" class="btn btn-secondary btn-sm" id="btn-save-draft">
-                        Save Draft
-                    </button>
-                    <button type="button" class="btn btn-sm btn-submit-attendance btn-trigger-submit" id="btn-submit-attendance">
-                        Submit to S1
-                    </button>
+                <div class="pl-quick">
+                    <button type="button" class="btn btn-secondary btn-sm" data-mark-all>Mark everyone not yet marked as Present</button>
+                    <div class="pl-key" aria-hidden="true">
+                        <span><b style="--c: var(--pl-p);">P</b> Present</span>
+                        <span><b style="--c: var(--pl-a);">A</b> Absent</span>
+                        <span><b style="--c: var(--pl-l);">L</b> Late</span>
+                        <span><b style="--c: var(--pl-e);">E</b> Excused</span>
+                    </div>
                 </div>
             <?php endif; ?>
-        </div>
 
-        <!-- Attendance Form & Table -->
-        <?php if (empty($cadets)): ?>
-            <div class="empty-state">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gray-500); margin-bottom: 12px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <h3 style="font-size: 16px; color: var(--green-900); margin-bottom: 6px;">No Active Cadets in Platoon</h3>
-                <p style="font-size: 13px; color: var(--gray-700); margin-bottom: 16px;">
-                    There are no active cadets enrolled in your platoon for this active term.
-                </p>
-                <a href="<?= BASE_URL ?>/leader/add_cadet.php" class="btn btn-primary btn-sm">+ Enroll Cadets</a>
-            </div>
-        <?php else: ?>
-            <form id="attendance-sheet-form" method="POST" action="<?= BASE_URL ?>/leader/attendance.php?session=<?= (int)$selected_session['id'] ?>">
-                <?= csrf_field() ?>
-                <input type="hidden" name="session_id" value="<?= (int)$selected_session['id'] ?>">
+            <!-- Roll list -->
+            <ol class="pl-roll">
+                <?php $n = 0; foreach ($cadets as $cadet): $n++; ?>
+                    <?php
+                        $cid            = (int)$cadet['id'];
+                        $rec            = $attendance_by_cadet[$cid] ?? null;
+                        $current_status = $rec['status'] ?? '';
+                        $minutes_late   = $rec['minutes_late'] ?? '';
+                        $excuse_reason  = $rec['excuse_reason'] ?? '';
 
-                <div class="table-responsive">
-                    <table class="data-table" id="attendance-table">
-                        <thead>
-                            <tr>
-                                <th class="sticky-cadet-col" style="min-width: 220px;">Cadet Name</th>
-                                <th style="min-width: 90px;">Program</th>
-                                <th style="min-width: 260px;">Attendance Status</th>
-                                <th style="min-width: 260px;">Details (Late / Excuse)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($cadets as $cadet): ?>
-                                <?php
-                                    $cid = (int)$cadet['id'];
-                                    $rec = $attendance_by_cadet[$cid] ?? null;
-                                    $current_status = $rec['status'] ?? '';
-                                    $minutes_late   = $rec['minutes_late'] ?? '';
-                                    $excuse_reason  = $rec['excuse_reason'] ?? '';
-
-                                    // Full name: Last, First, M.I.
-                                    $mi = '';
-                                    if (!empty($cadet['middle_name'])) {
-                                        $mi = ' ' . mb_strtoupper(mb_substr(trim($cadet['middle_name']), 0, 1)) . '.';
-                                    }
-                                    $full_name = $cadet['last_name'] . ', ' . $cadet['first_name'] . $mi;
-
-                                    $has_error = isset($form_errors[$cid]);
-                                    $row_error = $form_errors[$cid] ?? '';
-                                ?>
-                                <tr class="cadet-row <?= $has_error ? 'has-row-error' : '' ?>" data-cadet-id="<?= $cid ?>">
-                                    <!-- Sticky Name Column -->
-                                    <td class="sticky-cadet-col">
-                                        <div style="font-weight: 600; color: var(--green-900);">
-                                            <?= e($full_name) ?>
-                                        </div>
-                                        <div class="cadet-details-subtext">
-                                            <span style="font-family: monospace;"><?= e($cadet['cadet_code']) ?></span>
-                                            &bull; <?= e($cadet['gender']) ?>
-                                        </div>
-                                        <?php if ($has_error): ?>
-                                            <div style="color: var(--error); font-size: 11px; margin-top: 4px; font-weight: 600;">
-                                                <?= e($row_error) ?>
-                                            </div>
-                                        <?php endif; ?>
-                                    </td>
-
-                                    <!-- Program Column -->
-                                    <td>
-                                        <span style="font-weight: 500; font-size: 13px;">
-                                            <?= !empty($cadet['program_code']) ? e($cadet['program_code']) : '&mdash;' ?>
-                                        </span>
-                                    </td>
-
-                                    <!-- Status Radio Group Column -->
-                                    <td>
-                                        <div class="att-radio-group">
-                                            <!-- Present -->
-                                            <label class="att-radio-label opt-p" title="Present">
-                                                <input type="radio" 
-                                                       name="records[<?= $cid ?>][status]" 
-                                                       value="P" 
-                                                       <?= $current_status === 'P' ? 'checked' : '' ?>
-                                                       <?= !$is_editable ? 'disabled' : '' ?>>
-                                                <span class="att-btn">P</span>
-                                            </label>
-
-                                            <!-- Absent -->
-                                            <label class="att-radio-label opt-a" title="Absent">
-                                                <input type="radio" 
-                                                       name="records[<?= $cid ?>][status]" 
-                                                       value="A" 
-                                                       <?= $current_status === 'A' ? 'checked' : '' ?>
-                                                       <?= !$is_editable ? 'disabled' : '' ?>>
-                                                <span class="att-btn">A</span>
-                                            </label>
-
-                                            <!-- Late -->
-                                            <label class="att-radio-label opt-l" title="Late">
-                                                <input type="radio" 
-                                                       name="records[<?= $cid ?>][status]" 
-                                                       value="L" 
-                                                       <?= $current_status === 'L' ? 'checked' : '' ?>
-                                                       <?= !$is_editable ? 'disabled' : '' ?>>
-                                                <span class="att-btn">L</span>
-                                            </label>
-
-                                            <!-- Excused -->
-                                            <label class="att-radio-label opt-e" title="Excused">
-                                                <input type="radio" 
-                                                       name="records[<?= $cid ?>][status]" 
-                                                       value="E" 
-                                                       <?= $current_status === 'E' ? 'checked' : '' ?>
-                                                       <?= !$is_editable ? 'disabled' : '' ?>>
-                                                <span class="att-btn">E</span>
-                                            </label>
-
-                                            <?php if ($is_editable): ?>
-                                                <!-- Clear / Unmark button -->
-                                                <button type="button" class="att-clear-btn btn-unmark" title="Clear selection">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-
-                                    <!-- Details Column (Late minutes & Excused reason) -->
-                                    <td>
-                                        <div class="att-extra-inputs">
-                                            <!-- Minutes Late -->
-                                            <div class="box-late" style="<?= $current_status === 'L' ? '' : 'display: none;' ?>">
-                                                <div style="display: flex; align-items: center; gap: 6px;">
-                                                    <label style="font-size: 11px; font-weight: 600; color: var(--gray-700); margin: 0; white-space: nowrap;">Minutes late:</label>
-                                                    <input type="number" 
-                                                           name="records[<?= $cid ?>][minutes_late]" 
-                                                           class="form-control input-late" 
-                                                           min="0" 
-                                                           max="480" 
-                                                           style="width: 80px;" 
-                                                           placeholder="0"
-                                                           value="<?= e((string)$minutes_late) ?>"
-                                                           <?= !$is_editable ? 'disabled' : '' ?>>
-                                                </div>
-                                            </div>
-
-                                            <!-- Excuse Reason -->
-                                            <div class="box-excuse" style="<?= $current_status === 'E' ? '' : 'display: none;' ?>">
-                                                <input type="text" 
-                                                       name="records[<?= $cid ?>][excuse_reason]" 
-                                                       class="form-control input-excuse <?= ($has_error && $current_status === 'E') ? 'is-invalid' : '' ?>" 
-                                                       placeholder="Excuse reason (required)" 
-                                                       value="<?= e($excuse_reason) ?>"
-                                                       <?= !$is_editable ? 'disabled' : '' ?>>
-                                            </div>
-
-                                            <!-- Fallback placeholder for P and A -->
-                                            <div class="box-blank" style="<?= in_array($current_status, ['P', 'A', ''], true) ? '' : 'display: none;' ?>">
-                                                <span style="font-size: 12px; color: var(--gray-400);">&mdash;</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <?php if ($is_editable): ?>
-                    <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
-                        <button type="submit" name="form_action" value="save_draft" class="btn btn-secondary">
-                            Save Draft
-                        </button>
-                        <button type="button" class="btn btn-submit-attendance btn-trigger-submit">
-                            Submit to S1
-                        </button>
-                    </div>
-                <?php endif; ?>
-            </form>
-        <?php endif; ?>
-
-    <?php endif; ?>
-
-<?php endif; ?>
-
-<?php if ($selected_session && $is_editable && !empty($cadets)): ?>
-<script>
-// Step C: JavaScript Auto-Save, Dynamic Toggles, and Mark All Present
-document.addEventListener('DOMContentLoaded', function () {
-    const table = document.getElementById('attendance-table');
-    if (!table) return;
-
-    const sessionId = <?= (int)$selected_session['id'] ?>;
-    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-
-    const indicator = document.getElementById('save-indicator');
-    const statusText = document.getElementById('save-status-text');
-    const cntMarked = document.getElementById('cnt-marked');
-    const cntUnmarked = document.getElementById('cnt-unmarked');
-    const totalCadets = <?= count($cadets) ?>;
-
-    let autoSaveTimer = null;
-    let isSaving = false;
-
-    // Helper: update save indicator status
-    function setSaveStatus(state, message) {
-        if (!indicator || !statusText) return;
-        indicator.className = 'save-indicator ' + state;
-        statusText.textContent = message;
-    }
-
-    // Helper: calculate counts of marked and unmarked
-    function updateCounters() {
-        let marked = 0;
-        document.querySelectorAll('.cadet-row').forEach(row => {
-            const checked = row.querySelector('input[type="radio"]:checked');
-            if (checked && checked.value) {
-                marked++;
-            }
-        });
-        const unmarked = totalCadets - marked;
-        if (cntMarked) cntMarked.textContent = marked;
-        if (cntUnmarked) {
-            cntUnmarked.textContent = unmarked;
-            cntUnmarked.style.color = unmarked > 0 ? 'var(--warning)' : 'var(--gray-700)';
-        }
-    }
-
-    // Toggle row inputs based on chosen status
-    function updateRowInputs(row, status) {
-        const boxLate = row.querySelector('.box-late');
-        const boxExcuse = row.querySelector('.box-excuse');
-        const boxBlank = row.querySelector('.box-blank');
-
-        if (boxLate) boxLate.style.display = (status === 'L') ? 'block' : 'none';
-        if (boxExcuse) boxExcuse.style.display = (status === 'E') ? 'block' : 'none';
-        if (boxBlank) boxBlank.style.display = (status === 'P' || status === 'A' || status === '') ? 'block' : 'none';
-    }
-
-    // Collect current state of the sheet
-    function collectSheetData() {
-        const records = [];
-        document.querySelectorAll('.cadet-row').forEach(row => {
-            const cid = parseInt(row.getAttribute('data-cadet-id'), 10);
-            const checkedRadio = row.querySelector('input[type="radio"]:checked');
-            const status = checkedRadio ? checkedRadio.value : '';
-
-            const minInput = row.querySelector('.input-late');
-            const excuseInput = row.querySelector('.input-excuse');
-
-            records.push({
-                cadet_id: cid,
-                status: status,
-                minutes_late: minInput ? minInput.value.trim() : null,
-                excuse_reason: excuseInput ? excuseInput.value.trim() : null
-            });
-        });
-        return records;
-    }
-
-    // Trigger auto-save to API
-    async function performAutoSave() {
-        if (isSaving) return;
-        isSaving = true;
-        setSaveStatus('saving', 'Saving changes...');
-
-        const records = collectSheetData();
-
-        try {
-            const response = await fetch('<?= BASE_URL ?>/api/attendance_save.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify({
-                    session_id: sessionId,
-                    csrf_token: csrfToken,
-                    records: records
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                setSaveStatus('saved', 'Saved at ' + (data.saved_at || 'just now'));
-                // Clear any error highlights
-                document.querySelectorAll('.input-excuse.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            } else {
-                setSaveStatus('error', data.error || 'Save failed');
-                if (data.row_errors) {
-                    for (const [cid, errMsg] of Object.entries(data.row_errors)) {
-                        const row = document.querySelector(`.cadet-row[data-cadet-id="${cid}"]`);
-                        if (row) {
-                            const excuseInput = row.querySelector('.input-excuse');
-                            if (excuseInput) excuseInput.classList.add('is-invalid');
+                        $mi = '';
+                        if (!empty($cadet['middle_name'])) {
+                            $mi = ' ' . mb_strtoupper(mb_substr(trim($cadet['middle_name']), 0, 1)) . '.';
                         }
-                    }
-                }
-            }
-        } catch (err) {
-            setSaveStatus('error', 'Network error while saving');
-        } finally {
-            isSaving = false;
-        }
-    }
+                        $full_name = $cadet['last_name'] . ', ' . $cadet['first_name'] . $mi;
+                        $search_key = mb_strtolower($full_name . ' ' . $cadet['cadet_code'] . ' ' . $cadet['first_name'] . ' ' . $cadet['last_name']);
 
-    // Debounced trigger
-    function scheduleAutoSave() {
-        setSaveStatus('saving', 'Unsaved changes...');
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(performAutoSave, 1200);
-    }
+                        $has_error = isset($form_errors[$cid]);
+                        $row_error = $form_errors[$cid] ?? '';
+                        $dis       = $is_editable ? '' : 'disabled';
+                        $opts      = ['P' => 'Present', 'A' => 'Absent', 'L' => 'Late', 'E' => 'Excused'];
+                    ?>
+                    <li class="pl-cadet <?= $has_error ? 'has-row-error' : '' ?>"
+                        data-cadet-id="<?= $cid ?>"
+                        data-status="<?= e($current_status) ?>"
+                        data-search="<?= e($search_key) ?>">
 
-    // Handle radio changes
-    table.addEventListener('change', function (e) {
-        if (e.target.matches('input[type="radio"]')) {
-            const row = e.target.closest('.cadet-row');
-            if (row) {
-                updateRowInputs(row, e.target.value);
-                updateCounters();
-                scheduleAutoSave();
-            }
-        } else if (e.target.matches('.input-late') || e.target.matches('.input-excuse')) {
-            scheduleAutoSave();
-        }
-    });
+                        <div class="pl-cadet-id">
+                            <span class="pl-cadet-num"><?= $n ?></span>
+                            <div>
+                                <div class="pl-cadet-name"><?= e($full_name) ?></div>
+                                <div class="pl-cadet-meta">
+                                    <code><?= e($cadet['cadet_code']) ?></code>
+                                    <?php if (!empty($cadet['program_code'])): ?>&bull; <?= e($cadet['program_code']) ?><?php endif; ?>
+                                </div>
+                                <div class="pl-cadet-err" data-err <?= $has_error ? '' : 'hidden' ?>><?= e($row_error) ?></div>
+                            </div>
+                        </div>
 
-    // Handle typing in text inputs with input event debounce
-    table.addEventListener('input', function (e) {
-        if (e.target.matches('.input-late') || e.target.matches('.input-excuse')) {
-            scheduleAutoSave();
-        }
-    });
+                        <div class="pl-status" role="radiogroup" aria-label="Attendance for <?= e($full_name) ?>">
+                            <?php foreach ($opts as $code => $word): ?>
+                                <label class="pl-opt pl-opt-<?= strtolower($code) ?>">
+                                    <input type="radio"
+                                           name="records[<?= $cid ?>][status]"
+                                           value="<?= $code ?>"
+                                           <?= $current_status === $code ? 'checked' : '' ?>
+                                           <?= $dis ?>>
+                                    <span class="pl-opt-face"><b><?= $code ?></b><small><?= $word ?></small></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
 
-    // Handle Clear / Unmark button
-    table.addEventListener('click', function (e) {
-        const unmarkBtn = e.target.closest('.btn-unmark');
-        if (unmarkBtn) {
-            const row = unmarkBtn.closest('.cadet-row');
-            if (row) {
-                const radios = row.querySelectorAll('input[type="radio"]');
-                radios.forEach(r => r.checked = false);
-                updateRowInputs(row, '');
-                updateCounters();
-                scheduleAutoSave();
-            }
-        }
-    });
+                        <?php if ($is_editable): ?>
+                            <div class="pl-clear-slot">
+                                <button type="button" class="pl-clear" title="Clear mark" aria-label="Clear mark for <?= e($full_name) ?>" <?= $current_status === '' ? 'hidden' : '' ?>><?= $ico['x'] ?></button>
+                            </div>
+                        <?php endif; ?>
 
-    // Mark All Present (P) button
-    const btnMarkAll = document.getElementById('btn-mark-all-present');
-    if (btnMarkAll) {
-        btnMarkAll.addEventListener('click', function () {
-            let changed = 0;
-            document.querySelectorAll('.cadet-row').forEach(row => {
-                const checked = row.querySelector('input[type="radio"]:checked');
-                // By default, fill unmarked cadets so existing L and E entries are kept
-                if (!checked) {
-                    const radioP = row.querySelector('input[type="radio"][value="P"]');
-                    if (radioP) {
-                        radioP.checked = true;
-                        updateRowInputs(row, 'P');
-                        changed++;
-                    }
-                }
-            });
+                        <!-- Late minutes -->
+                        <div class="pl-detail" data-detail="late" <?= $current_status === 'L' ? '' : 'hidden' ?>>
+                            <label for="late-<?= $cid ?>">Minutes late</label>
+                            <input type="number" id="late-<?= $cid ?>"
+                                   name="records[<?= $cid ?>][minutes_late]"
+                                   class="form-control pl-minutes"
+                                   min="0" max="480" inputmode="numeric" placeholder="0"
+                                   value="<?= e((string)$minutes_late) ?>" <?= $dis ?>>
+                            <?php if ($is_editable): ?>
+                                <span class="pl-min-chips" aria-label="Quick minutes">
+                                    <?php foreach ([5, 10, 15, 30] as $m): ?>
+                                        <button type="button" data-minutes="<?= $m ?>"><?= $m ?></button>
+                                    <?php endforeach; ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
 
-            if (changed > 0) {
-                updateCounters();
-                scheduleAutoSave();
-                if (typeof showToast === 'function') {
-                    showToast(`Marked ${changed} unmarked cadet(s) as Present.`, 'success');
-                }
-            } else {
-                if (typeof showToast === 'function') {
-                    showToast('All cadets are already marked.', 'info');
-                }
-            }
-        });
-    }
+                        <!-- Excuse reason -->
+                        <div class="pl-detail" data-detail="excuse" <?= $current_status === 'E' ? '' : 'hidden' ?>>
+                            <label for="excuse-<?= $cid ?>">Reason</label>
+                            <input type="text" id="excuse-<?= $cid ?>"
+                                   name="records[<?= $cid ?>][excuse_reason]"
+                                   class="form-control pl-excuse <?= ($has_error && $current_status === 'E') ? 'is-invalid' : '' ?>"
+                                   placeholder="Why is this cadet excused? (required)"
+                                   value="<?= e($excuse_reason) ?>" <?= $dis ?>>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
 
-    // Step C: Warn once if session is already submitted
-    <?php if ($selected_session['submission_state'] === 'submitted'): ?>
-    let hasWarnedSubmittedEdit = false;
-    function checkSubmittedWarning() {
-        if (!hasWarnedSubmittedEdit) {
-            hasWarnedSubmittedEdit = true;
-            if (typeof showToast === 'function') {
-                showToast('Notice: Editing a submitted sheet will reset any S1 approvals upon saving.', 'warning', 6000);
-            }
-        }
-    }
-    table.addEventListener('change', checkSubmittedWarning);
+            <div class="pl-no-match" data-nomatch hidden>No cadets match. Change the filter or search.</div>
+
+            <?php if ($is_editable): ?>
+                <!-- Sticky action bar -->
+                <div class="pl-actionbar">
+                    <div class="pl-actionbar-left">
+                        <span class="pl-left-count <?= $count_unmarked > 0 ? 'is-warn' : '' ?>" data-left>
+                            <?= $count_unmarked > 0 ? (int)$count_unmarked . ' left to mark' : 'All cadets marked' ?>
+                        </span>
+                        <span class="pl-save" data-save><span class="pl-save-dot"></span><span data-save-text>Changes save automatically</span></span>
+                    </div>
+                    <div class="pl-actionbar-right">
+                        <button type="submit" name="form_action" value="save_draft" class="btn btn-secondary">Save draft</button>
+                        <button type="submit" name="form_action" value="submit" class="btn btn-primary" data-submit>Submit to S1</button>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </form>
+
     <?php endif; ?>
 
-    // Step C: Submit Confirmation Modal & Unmarked Cadets Enforcement
-    const submitButtons = document.querySelectorAll('.btn-trigger-submit, #btn-submit-attendance');
-    submitButtons.forEach(btn => {
-        btn.addEventListener('click', async function (e) {
-            e.preventDefault();
-            const form = document.getElementById('attendance-sheet-form');
-            if (!form) return;
-
-            // Collect unmarked cadets
-            const unmarkedCadets = [];
-            document.querySelectorAll('.cadet-row').forEach(row => {
-                const checked = row.querySelector('input[type="radio"]:checked');
-                if (!checked || !checked.value) {
-                    const nameEl = row.querySelector('.sticky-cadet-col div:first-child');
-                    unmarkedCadets.push(nameEl ? nameEl.textContent.trim() : 'Unnamed Cadet');
-                }
-            });
-
-            if (unmarkedCadets.length > 0) {
-                const preview = unmarkedCadets.slice(0, 5).join('<br>');
-                const remaining = unmarkedCadets.length > 5 ? `<div style="margin-top: 4px; font-style: italic;">...and ${unmarkedCadets.length - 5} more</div>` : '';
-                await showConfirm({
-                    title: 'Cannot Submit Attendance',
-                    message: `<p style="margin-bottom: 10px;">There are still <strong>${unmarkedCadets.length} unmarked cadet(s)</strong>:</p>
-                              <div style="background-color: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 6px; padding: 10px 12px; color: #C53030; font-size: 13px; max-height: 140px; overflow-y: auto;">
-                                  ${preview}
-                                  ${remaining}
-                              </div>
-                              <p style="margin-top: 10px; font-size: 13px; color: var(--gray-700);">Every cadet in the platoon must be marked (Present, Absent, Late, or Excused) before the sheet can be submitted to S1.</p>`,
-                    confirmText: 'Got It',
-                    cancelText: 'Close'
-                });
-                return;
-            }
-
-            const sessionLabel = <?= json_encode($selected_session['label']) ?>;
-            const confirmed = await showConfirm({
-                title: 'Submit Attendance to S1',
-                message: `<p style="margin-bottom: 8px;">Are you sure you want to submit attendance for <strong>${sessionLabel}</strong>?</p>
-                          <p style="font-size: 13px; color: var(--gray-700); margin: 0;">This will forward the attendance record to <strong>Battalion S1</strong> and <strong>Brigade S1</strong> for review and approval.</p>`,
-                confirmText: 'Submit Attendance',
-                cancelText: 'Cancel'
-            });
-
-            if (confirmed) {
-                let actionInput = form.querySelector('input[name="form_action"]');
-                if (!actionInput) {
-                    actionInput = document.createElement('input');
-                    actionInput.type = 'hidden';
-                    actionInput.name = 'form_action';
-                    form.appendChild(actionInput);
-                }
-                actionInput.value = 'submit';
-                form.submit();
-            }
-        });
-    });
-});
-</script>
 <?php endif; ?>
+
+</div>
+
+<script src="<?= BASE_URL ?>/assets/js/leader.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/attendance_queries.php';
 require_once __DIR__ . '/../includes/export_helpers.php';
+require_once __DIR__ . '/../includes/s1_ui.php';
 
 require_role('battalion_s1', 'brigade_s1');
 
@@ -153,24 +154,6 @@ function filter_query(array $overrides = []): string {
     }
     $qs = http_build_query($params);
     return $qs !== '' ? '?' . $qs : '';
-}
-
-// Stacked P/L/A/E bar (colors only, with tooltips)
-function s1_stack(array $t, string $extra_class = ''): string {
-    $p = (int)($t['p'] ?? 0); $l = (int)($t['l'] ?? 0); $a = (int)($t['a'] ?? 0); $e = (int)($t['e'] ?? 0);
-    $tot = $p + $l + $a + $e;
-    $cls = 's1-stack' . ($extra_class !== '' ? ' ' . $extra_class : '');
-    if ($tot === 0) return '<div class="' . $cls . '" role="img" aria-label="No marks"></div>';
-    $out = '<div class="' . $cls . '" role="img" aria-label="' . e("Present $p, Late $l, Absent $a, Excused $e") . '">';
-    foreach (['p' => ['Present', $p], 'l' => ['Late', $l], 'a' => ['Absent', $a], 'e' => ['Excused', $e]] as $k => [$label, $n]) {
-        if ($n <= 0) continue;
-        $out .= '<i class="s1-seg-' . $k . '" style="width:' . round($n * 100 / $tot, 2) . '%" title="' . e($label . ': ' . $n) . '"></i>';
-    }
-    return $out . '</div>';
-}
-
-function s1_tone(?float $pct, float $threshold): string {
-    return $pct === null ? 'na' : ($pct < $threshold ? 'bad' : 'good');
 }
 
 $base_url = BASE_URL . '/s1/view_attendance.php';

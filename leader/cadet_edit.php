@@ -60,19 +60,21 @@ if (!$cadet) {
     $page_title = 'Cadet Not Found';
     require_once __DIR__ . '/../includes/header.php';
     ?>
-    <div class="content-header">
-        <h1>Cadet Not Found</h1>
-        <p>The cadet you requested does not exist or is not enrolled in your platoon.</p>
-    </div>
-    <div class="card" style="max-width: 600px; text-align: center; padding: 40px 20px;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--error); margin-bottom: 16px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <h3 style="font-size: 18px; color: var(--green-900); margin-bottom: 8px;">Access Restricted or Record Missing</h3>
-        <p style="font-size: 14px; color: var(--gray-700); margin-bottom: 24px;">
-            You can only view and manage cadets currently enrolled in your assigned platoon for the active academic term.
-        </p>
-        <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-primary">
-            &larr; Return to Cadets Roster
-        </a>
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/leader.css">
+    <div class="pl">
+        <div class="pl-hero">
+            <div>
+                <div class="pl-eyebrow">Platoon leader</div>
+                <h1>Cadet not found</h1>
+                <p class="pl-sub">That cadet doesn&rsquo;t exist or isn&rsquo;t in your platoon.</p>
+            </div>
+        </div>
+        <div class="pl-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <h3>Record missing or restricted</h3>
+            <p>You can only view and manage cadets enrolled in your assigned platoon for the active term.</p>
+            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-primary">&larr; Back to cadets</a>
+        </div>
     </div>
     <?php
     require_once __DIR__ . '/../includes/footer.php';
@@ -314,172 +316,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Helper to render field error
 $field_error = function (string $name) use ($errors): string {
     if (!isset($errors[$name])) return '';
-    return '<span class="field-error-msg" style="color: var(--error); font-size: 12px; margin-top: 4px; display: block;">' . e($errors[$name]) . '</span>';
+    return '<span class="pl-field-error">' . e($errors[$name]) . '</span>';
 };
 
 $page_title = 'Edit Cadet - ' . $cadet['cadet_code'];
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/leader.css">
 
-<div class="content-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <h1>Edit Cadet Details</h1>
-            <p style="margin: 0; color: var(--gray-700);">
-                Manage cadet profile and status for <strong><?= e($cadet['cadet_code']) ?></strong>
-            </p>
-        </div>
-        <div>
-            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-sm">
-                &larr; Back to Cadets
-            </a>
-        </div>
-    </div>
-</div>
+<div class="pl">
 
-<div class="card" style="max-width: 800px; margin-bottom: 32px;">
-    <!-- Non-editable Assignment & Code Info Banner -->
-    <div style="background-color: var(--gray-50); border: 1px solid var(--gray-300); border-radius: var(--radius-default); padding: 16px; margin-bottom: 24px;">
-        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-700); margin-bottom: 8px;">
-            Enrolled Unit & Identity (Read-only)
+    <!-- Hero -->
+    <div class="pl-hero">
+        <div>
+            <div class="pl-eyebrow">Platoon leader</div>
+            <h1>Edit cadet</h1>
+            <p class="pl-sub">Update the profile and status for <strong><?= e($cadet['cadet_code']) ?></strong>.</p>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 14px;">
-            <div>
-                <span style="color: var(--gray-700); display: block; font-size: 12px;">Cadet Code:</span>
-                <strong style="font-family: monospace; font-size: 14px; color: var(--green-900);"><?= e($cadet['cadet_code']) ?></strong>
-            </div>
-            <div>
-                <span style="color: var(--gray-700); display: block; font-size: 12px;">Company:</span>
-                <strong>Company <?= e($company_name) ?></strong>
-            </div>
-            <div>
-                <span style="color: var(--gray-700); display: block; font-size: 12px;">Platoon:</span>
-                <strong><?= e($platoon_name) ?></strong>
-            </div>
-            <div>
-                <span style="color: var(--gray-700); display: block; font-size: 12px;">Active Term:</span>
-                <strong><?= e($active_term['name']) ?></strong>
-            </div>
-        </div>
-        <div style="margin-top: 10px; font-size: 12px; color: var(--gray-700);">
-            <em>Cadet codes and platoon assignments cannot be altered here. Cadets may be unassigned from the roster page.</em>
+        <div class="pl-hero-actions">
+            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary">&larr; Back to cadets</a>
         </div>
     </div>
 
-    <!-- Edit Form -->
-    <form method="POST" action="<?= BASE_URL ?>/leader/cadet_edit.php" novalidate>
-        <?= csrf_field() ?>
-        <input type="hidden" name="id" value="<?= (int)$cadet['id'] ?>">
-
-        <h3 style="font-size: 16px; color: var(--green-900); border-bottom: 1px solid var(--gray-300); padding-bottom: 8px; margin-bottom: 16px;">
-            Personal Information
-        </h3>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
-            <div class="form-group" style="margin: 0;">
-                <label for="last_name">Last Name <span style="color: var(--error);">*</span></label>
-                <input type="text" id="last_name" name="last_name" class="form-control <?= isset($errors['last_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['last_name']) ?>" required>
-                <?= $field_error('last_name') ?>
-            </div>
-
-            <div class="form-group" style="margin: 0;">
-                <label for="first_name">First Name <span style="color: var(--error);">*</span></label>
-                <input type="text" id="first_name" name="first_name" class="form-control <?= isset($errors['first_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['first_name']) ?>" required>
-                <?= $field_error('first_name') ?>
-            </div>
-
-            <div class="form-group" style="margin: 0;">
-                <label for="middle_name">Middle Name <span style="font-weight: normal; color: var(--gray-500);">(Optional)</span></label>
-                <input type="text" id="middle_name" name="middle_name" class="form-control <?= isset($errors['middle_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['middle_name']) ?>">
-                <?= $field_error('middle_name') ?>
-            </div>
+    <div class="pl-card pl-form-card">
+        <div class="pl-form-head">
+            <h2><?= e($cadet['last_name'] . ', ' . $cadet['first_name']) ?></h2>
+            <p class="pl-muted">Fields marked <span class="pl-req">*</span> are required.</p>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
-            <div class="form-group" style="margin: 0;">
-                <label for="birthday">Birthday <span style="color: var(--error);">*</span></label>
-                <input type="date" id="birthday" name="birthday" max="<?= date('Y-m-d') ?>" class="form-control <?= isset($errors['birthday']) ? 'is-invalid' : '' ?>" value="<?= e($form['birthday']) ?>" required>
-                <?= $field_error('birthday') ?>
+        <div class="pl-form-body">
+
+            <!-- Read-only identity -->
+            <div class="pl-identity">
+                <div><span>Cadet code</span><strong style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;"><?= e($cadet['cadet_code']) ?></strong></div>
+                <div><span>Company</span><strong>Company <?= e($company_name) ?></strong></div>
+                <div><span>Platoon</span><strong><?= e($platoon_name) ?></strong></div>
+                <div><span>Active term</span><strong><?= e($active_term['name']) ?></strong></div>
+                <p class="pl-identity-note">The code and platoon can&rsquo;t be changed here. To unassign a cadet, use Remove on the cadets page.</p>
             </div>
 
-            <div class="form-group" style="margin: 0;">
-                <label for="gender">Gender <span style="color: var(--error);">*</span></label>
-                <select id="gender" name="gender" class="form-control <?= isset($errors['gender']) ? 'is-invalid' : '' ?>" required>
-                    <option value="">-- Select Gender --</option>
-                    <option value="Male" <?= $form['gender'] === 'Male' ? 'selected' : '' ?>>Male</option>
-                    <option value="Female" <?= $form['gender'] === 'Female' ? 'selected' : '' ?>>Female</option>
-                </select>
-                <?= $field_error('gender') ?>
-            </div>
+            <form method="POST" action="<?= BASE_URL ?>/leader/cadet_edit.php" class="pl-form" novalidate>
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= (int)$cadet['id'] ?>">
 
-            <div class="form-group" style="margin: 0;">
-                <label for="program_id">Academic Program <span style="color: var(--error);">*</span></label>
-                <select id="program_id" name="program_id" class="form-control <?= isset($errors['program_id']) ? 'is-invalid' : '' ?>" required>
-                    <option value="">-- Select Program --</option>
-                    <?php foreach ($programs as $prog): ?>
-                        <option value="<?= (int)$prog['id'] ?>" <?= $form['program_id'] === (int)$prog['id'] ? 'selected' : '' ?>>
-                            <?= e($prog['code'] . ' - ' . $prog['name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?= $field_error('program_id') ?>
-            </div>
+                <!-- 1. Personal -->
+                <fieldset class="pl-section" style="border: none; min-width: 0;">
+                    <div class="pl-section-head"><span class="pl-step">1</span><h3>Personal information</h3></div>
+                    <div class="pl-grid">
+                        <div class="pl-field">
+                            <label for="last_name">Last name <span class="pl-req">*</span></label>
+                            <input type="text" id="last_name" name="last_name" class="form-control <?= isset($errors['last_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['last_name']) ?>" required>
+                            <?= $field_error('last_name') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="first_name">First name <span class="pl-req">*</span></label>
+                            <input type="text" id="first_name" name="first_name" class="form-control <?= isset($errors['first_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['first_name']) ?>" required>
+                            <?= $field_error('first_name') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="middle_name">Middle name <span class="pl-opt-note">Optional</span></label>
+                            <input type="text" id="middle_name" name="middle_name" class="form-control <?= isset($errors['middle_name']) ? 'is-invalid' : '' ?>" value="<?= e($form['middle_name']) ?>">
+                            <?= $field_error('middle_name') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="birthday">Birthday <span class="pl-req">*</span></label>
+                            <input type="date" id="birthday" name="birthday" max="<?= date('Y-m-d') ?>" class="form-control <?= isset($errors['birthday']) ? 'is-invalid' : '' ?>" value="<?= e($form['birthday']) ?>" required>
+                            <?= $field_error('birthday') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="gender">Gender <span class="pl-req">*</span></label>
+                            <select id="gender" name="gender" class="form-control <?= isset($errors['gender']) ? 'is-invalid' : '' ?>" required>
+                                <option value="">Select gender&hellip;</option>
+                                <option value="Male" <?= $form['gender'] === 'Male' ? 'selected' : '' ?>>Male</option>
+                                <option value="Female" <?= $form['gender'] === 'Female' ? 'selected' : '' ?>>Female</option>
+                            </select>
+                            <?= $field_error('gender') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="program_id">Academic program <span class="pl-req">*</span></label>
+                            <select id="program_id" name="program_id" class="form-control <?= isset($errors['program_id']) ? 'is-invalid' : '' ?>" required>
+                                <option value="">Select program&hellip;</option>
+                                <?php foreach ($programs as $prog): ?>
+                                    <option value="<?= (int)$prog['id'] ?>" <?= $form['program_id'] === (int)$prog['id'] ? 'selected' : '' ?>>
+                                        <?= e($prog['code'] . ' - ' . $prog['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?= $field_error('program_id') ?>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 2. Records and contact -->
+                <fieldset class="pl-section" style="border: none; min-width: 0;">
+                    <div class="pl-section-head"><span class="pl-step">2</span><h3>Student records and contact</h3></div>
+                    <div class="pl-grid">
+                        <div class="pl-field">
+                            <label for="student_number">Student number <span class="pl-req">*</span></label>
+                            <input type="text" id="student_number" name="student_number" class="form-control <?= isset($errors['student_number']) ? 'is-invalid' : '' ?>" value="<?= e($form['student_number']) ?>" required>
+                            <?= $field_error('student_number') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="email">Email address <span class="pl-req">*</span></label>
+                            <input type="email" id="email" name="email" class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" value="<?= e($form['email']) ?>" required>
+                            <?= $field_error('email') ?>
+                        </div>
+                        <div class="pl-field">
+                            <label for="contact_number">Contact number <span class="pl-opt-note">Optional</span></label>
+                            <input type="text" id="contact_number" name="contact_number" class="form-control <?= isset($errors['contact_number']) ? 'is-invalid' : '' ?>" value="<?= e($form['contact_number']) ?>">
+                            <?= $field_error('contact_number') ?>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 3. Status -->
+                <fieldset class="pl-section" style="border: none; min-width: 0;">
+                    <div class="pl-section-head"><span class="pl-step">3</span><h3>Cadet status</h3></div>
+                    <div class="pl-grid">
+                        <div class="pl-field">
+                            <label for="status">Enrollment status <span class="pl-req">*</span></label>
+                            <select id="status" name="status" class="form-control <?= isset($errors['status']) ? 'is-invalid' : '' ?>" required>
+                                <?php foreach ($status_options as $key => $label): ?>
+                                    <option value="<?= e($key) ?>" <?= $form['status'] === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?= $field_error('status') ?>
+                            <span class="pl-hint">Active, dropped, transferred, or graduated.</span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="pl-form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">Save changes</button>
+                    <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <h3 style="font-size: 16px; color: var(--green-900); border-bottom: 1px solid var(--gray-300); padding-bottom: 8px; margin-bottom: 16px;">
-            Student Records & Contact
-        </h3>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
-            <div class="form-group" style="margin: 0;">
-                <label for="student_number">Student Number <span style="color: var(--error);">*</span></label>
-                <input type="text" id="student_number" name="student_number" class="form-control <?= isset($errors['student_number']) ? 'is-invalid' : '' ?>" value="<?= e($form['student_number']) ?>" required>
-                <?= $field_error('student_number') ?>
-            </div>
-
-            <div class="form-group" style="margin: 0;">
-                <label for="email">Email Address <span style="color: var(--error);">*</span></label>
-                <input type="email" id="email" name="email" class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" value="<?= e($form['email']) ?>" required>
-                <?= $field_error('email') ?>
-            </div>
-
-            <div class="form-group" style="margin: 0;">
-                <label for="contact_number">Contact Number <span style="font-weight: normal; color: var(--gray-500);">(Optional)</span></label>
-                <input type="text" id="contact_number" name="contact_number" class="form-control <?= isset($errors['contact_number']) ? 'is-invalid' : '' ?>" value="<?= e($form['contact_number']) ?>">
-                <?= $field_error('contact_number') ?>
-            </div>
-        </div>
-
-        <h3 style="font-size: 16px; color: var(--green-900); border-bottom: 1px solid var(--gray-300); padding-bottom: 8px; margin-bottom: 16px;">
-            Cadet Status
-        </h3>
-
-        <div style="max-width: 300px; margin-bottom: 24px;">
-            <div class="form-group" style="margin: 0;">
-                <label for="status">Enrollment Status <span style="color: var(--error);">*</span></label>
-                <select id="status" name="status" class="form-control <?= isset($errors['status']) ? 'is-invalid' : '' ?>" required>
-                    <?php foreach ($status_options as $key => $label): ?>
-                        <option value="<?= e($key) ?>" <?= $form['status'] === $key ? 'selected' : '' ?>>
-                            <?= e($label) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?= $field_error('status') ?>
-                <span style="font-size: 12px; color: var(--gray-500); margin-top: 4px; display: block;">
-                    Cadet status within the unit (active, dropped, transferred, or graduated).
-                </span>
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--gray-300); padding-top: 20px;">
-            <button type="submit" class="btn btn-primary">
-                Save Changes
-            </button>
-            <a href="<?= BASE_URL ?>/leader/cadets.php" class="btn btn-secondary">
-                Cancel
-            </a>
-        </div>
-    </form>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
