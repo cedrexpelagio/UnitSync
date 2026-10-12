@@ -1,0 +1,70 @@
+/* UnitSync: Reassign Platoon Leader (s1/reassign_officer.php)
+   Convenience only: shows the swap option when the chosen platoon is already held,
+   and a plain-language preview of what will happen. The server re-checks everything. */
+(function () {
+    'use strict';
+
+    var form = document.getElementById('reassignForm');
+    if (!form) return;
+
+    var officer = document.getElementById('officer_id');
+    var platoon = document.getElementById('platoon_id');
+    var swapBox = document.getElementById('swapBox');
+    var swapCk  = document.getElementById('swapCheck');
+    var preview = document.getElementById('reassignPreview');
+
+    function officerInfo() {
+        if (!officer) return null;
+        var el = officer.tagName === 'SELECT' ? officer.options[officer.selectedIndex] : officer;
+        if (!el || !el.getAttribute('data-name')) return null;
+        return {
+            id: officer.value,
+            name: el.getAttribute('data-name'),
+            current: el.getAttribute('data-current'),
+            active: el.getAttribute('data-active') === '1'
+        };
+    }
+
+    function platoonLabel(id) {
+        for (var i = 0; i < platoon.options.length; i++) {
+            if (platoon.options[i].value === String(id)) return platoon.options[i].getAttribute('data-label');
+        }
+        return 'no platoon';
+    }
+
+    function refresh() {
+        var o = officerInfo();
+        var opt = platoon.options[platoon.selectedIndex];
+        if (!o || !opt || !opt.value) {
+            swapBox.classList.remove('show');
+            preview.textContent = '';
+            return;
+        }
+
+        var holderId = opt.getAttribute('data-holder-id');
+        var holder   = opt.getAttribute('data-holder');
+        var label    = opt.getAttribute('data-label');
+        var occupied = holderId !== '0' && holderId !== o.id;
+
+        swapBox.classList.toggle('show', occupied);
+        if (!occupied) swapCk.checked = false;
+
+        var text;
+        if (o.active && o.current === opt.value) {
+            text = o.name + ' already leads ' + label + '.';
+        } else if (!occupied) {
+            text = o.name + ' will lead ' + label + '.'
+                 + (o.active && o.current !== '0' ? ' ' + platoonLabel(o.current) + ' will become vacant.' : '');
+        } else if (swapCk.checked && o.active) {
+            text = o.name + ' will lead ' + label + ', and ' + holder + ' will lead ' + platoonLabel(o.current) + '.';
+        } else {
+            text = label + ' is held by ' + holder + '. Tick "Swap places" to exchange positions.';
+        }
+        preview.textContent = text;
+    }
+
+    if (officer && officer.tagName === 'SELECT') officer.addEventListener('change', refresh);
+    platoon.addEventListener('change', refresh);
+    swapCk.addEventListener('change', refresh);
+    refresh();
+})();

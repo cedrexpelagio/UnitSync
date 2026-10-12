@@ -58,7 +58,7 @@ if ($role === 'admin') {
         ['Import Cadets',    '/s1/import_cadets.php',     ['import_cadets.php'],                             'upload'],
         ['Import Officers',  '/s1/import_officers.php',   ['import_officers.php'],                           'upload'],
         ['Cadet Roster',     '/s1/roster.php',            ['roster.php', 'edit_cadet.php'],                  'users'],
-        ['Officer Roster',   '/s1/officers.php',          ['officers.php', 'edit_officer.php'],              'award'],
+        ['Officer Roster',   '/s1/officers.php',          ['officers.php', 'edit_officer.php', 'reassign_officer.php'],              'award'],
         ['Review Attendance','/s1/review_attendance.php', ['review_attendance.php', 'review_session.php'],   'clipboard'],
         ['View Attendance',  '/s1/view_attendance.php',   ['view_attendance.php'],                           'eye'],
     ];

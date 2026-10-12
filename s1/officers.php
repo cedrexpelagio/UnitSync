@@ -1,5 +1,6 @@
 <?php
 // S1 Officer Roster: view, search, filter, paginate (Battalion S1 and Brigade S1 only)
+// Every platoon always has a row: a platoon without an active Platoon Leader shows as "Vacant" with an Assign button.
 // Also shows the generated Platoon Leader login credentials once and can generate missing logins.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/db.php';
@@ -13,7 +14,8 @@ require_role('battalion_s1', 'brigade_s1');
 
 $user = current_user();
 
-const OFFICER_PAGE_SIZE = 25;
+// 6 companies x (1 commander + 4 platoons) = 30 positions, so one page holds the whole roster
+const OFFICER_PAGE_SIZE = 50;
 
 $role_labels = [
     'company_commander' => 'Company Commander',
@@ -21,6 +23,7 @@ $role_labels = [
 ];
 $status_labels = [
     'active'   => 'Active',
+    'vacant'   => 'Vacant',
     'inactive' => 'Inactive',
 ];
 
@@ -42,6 +45,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'dismiss_credentials') {
         unset($_SESSION['officer_credentials']);
         set_flash('info', 'Temporary passwords hidden. Use Reset password in Admin > Users if one is lost.');
+        redirect($roster_back);
+    }
+
+    if ($action === 'add_user_leader') {
+        $uid = off_int_param($_POST['user_id'] ?? '');
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                SELECT u.id, u.first_name, u.middle_name, u.last_name, p.id AS platoon_id, p.company_id
+                FROM users u
+                JOIN user_assignments ua ON ua.user_id = u.id
+                JOIN platoons p ON p.id = ua.platoon_id
+                WHERE u.id = ? AND u.role = 'platoon_leader' AND u.status = 'approved'
+                  AND NOT EXISTS (SELECT 1 FROM officers o WHERE o.user_id = u.id)
+                FOR UPDATE
+            ");
+            $stmt->execute([$uid]);
+            $u = $stmt->fetch();
+            if (!$u) throw new DomainException('That Platoon Leader account was not found or is already in the roster.');
+
+            $stmt = $pdo->prepare("SELECT last_name, first_name FROM officers WHERE role = 'platoon_leader' AND platoon_id = ? AND status = 'active' LIMIT 1");
+            $stmt->execute([(int)$u['platoon_id']]);
+            $held = $stmt->fetch();
+            if ($held) throw new DomainException('That platoon already has an active officer (' . $held['last_name'] . ', ' . $held['first_name'] . '). Deactivate or move that officer first.');
+
+            $pdo->prepare("
+                INSERT INTO officers (last_name, first_name, middle_name, role, company_id, platoon_id, user_id, status, created_by)
+                VALUES (?, ?, ?, 'platoon_leader', ?, ?, ?, 'active', ?)
+            ")->execute([
+                $u['last_name'], $u['first_name'], ($u['middle_name'] ?? '') !== '' ? $u['middle_name'] : null,
+                (int)$u['company_id'], (int)$u['platoon_id'], (int)$u['id'], (int)$user['id'],
+            ]);
+            $new_id = (int)$pdo->lastInsertId();
+            log_audit($pdo, (int)$user['id'], 'add_officer_from_account', 'officers', $new_id,
+                'Added registered Platoon Leader ' . officer_display_name($u) . ' (user #' . (int)$u['id'] . ') to the officer roster');
+            $pdo->commit();
+            set_flash('success', officer_display_name($u) . ' was added to the officer roster.');
+        } catch (DomainException $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            set_flash('error', $ex->getMessage());
+        } catch (Throwable $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            set_flash('error', 'Could not add the officer, nothing was saved. ' . $ex->getMessage());
+        }
         redirect($roster_back);
     }
 
@@ -110,31 +157,78 @@ $page    = max(1, off_int_param($_GET['page'] ?? '1'));
 if (!isset($role_labels[$role])) $role = '';
 if (!isset($status_labels[$status])) $status = '';
 
-// ---------- Build WHERE ----------
-$where = [];
-$params = [];
-if ($q !== '') {
-    $where[] = "(CONCAT_WS(' ', o.last_name, o.first_name, o.middle_name) LIKE :q1 OR CONCAT_WS(' ', o.first_name, o.last_name) LIKE :q2)";
-    $params['q1'] = '%' . addcslashes($q, '%_\\') . '%';
-    $params['q2'] = $params['q1'];
-}
-if ($role !== '')   { $where[] = 'o.role = :role';          $params['role'] = $role; }
-if ($company > 0)   { $where[] = 'o.company_id = :company'; $params['company'] = $company; }
-if ($platoon > 0)   { $where[] = 'o.platoon_id = :platoon'; $params['platoon'] = $platoon; }
-if ($status !== '') { $where[] = 'o.status = :status';      $params['status'] = $status; }
-$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-
-// ---------- Count and page ----------
-$from_sql = "
+// ---------- One list of positions: officers + vacant Platoon Leader slots ----------
+// A platoon with no ACTIVE Platoon Leader is added as a "vacant" row, so every platoon is always visible.
+$positions_sql = "
+    SELECT o.id AS officer_id, o.last_name, o.first_name, o.middle_name,
+           CONCAT(o.last_name, ', ', o.first_name, IF(o.middle_name IS NULL OR o.middle_name = '', '', CONCAT(' ', o.middle_name))) AS full_name,
+           CONCAT_WS(' ', o.first_name, o.last_name) AS alt_name,
+           CAST(o.role AS CHAR) AS role, o.company_id AS company_id, co.name AS company_name,
+           o.platoon_id AS platoon_id, p.name AS platoon_name,
+           CAST(o.status AS CHAR) AS status_key, u.username AS login_username, u.status AS login_status, o.user_id AS user_id
     FROM officers o
     JOIN companies co ON co.id = o.company_id
     LEFT JOIN platoons p ON p.id = o.platoon_id
     LEFT JOIN users u ON u.id = o.user_id
+    UNION ALL
+    SELECT NULL, u.last_name, u.first_name, u.middle_name,
+           CONCAT(u.last_name, ', ', u.first_name, IF(u.middle_name IS NULL OR u.middle_name = '', '', CONCAT(' ', u.middle_name))),
+           CONCAT_WS(' ', u.first_name, u.last_name),
+           'platoon_leader', p.company_id, co.name, p.id, p.name, 'active', u.username, u.status, u.id
+    FROM users u
+    JOIN user_assignments ua ON ua.user_id = u.id
+    JOIN platoons p ON p.id = ua.platoon_id
+    JOIN companies co ON co.id = p.company_id
+    WHERE u.role = 'platoon_leader' AND u.status = 'approved'
+      AND NOT EXISTS (SELECT 1 FROM officers x WHERE x.user_id = u.id)
+    UNION ALL
+    SELECT NULL, '', '', NULL, '', '',
+           'platoon_leader', p.company_id, co.name, p.id, p.name, 'vacant', NULL, NULL, NULL
+    FROM platoons p
+    JOIN companies co ON co.id = p.company_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM officers v
+        WHERE v.role = 'platoon_leader' AND v.platoon_id = p.id AND v.status = 'active'
+    )
+    AND NOT EXISTS (
+        SELECT 1 FROM users vu
+        JOIN user_assignments vua ON vua.user_id = vu.id
+        WHERE vu.role = 'platoon_leader' AND vu.status = 'approved' AND vua.platoon_id = p.id
+    )
 ";
 
-$stmt = $pdo->prepare("SELECT COUNT(*) $from_sql $where_sql");
+// ---------- Build WHERE ----------
+$where = [];
+$params = [];
+if ($q !== '') {
+    $where[] = "(x.full_name LIKE :q1 OR x.alt_name LIKE :q2)";
+    $params['q1'] = '%' . addcslashes($q, '%_\\') . '%';
+    $params['q2'] = $params['q1'];
+}
+if ($role !== '')   { $where[] = 'x.role = :role';          $params['role'] = $role; }
+if ($company > 0)   { $where[] = 'x.company_id = :company'; $params['company'] = $company; }
+if ($platoon > 0)   { $where[] = 'x.platoon_id = :platoon'; $params['platoon'] = $platoon; }
+// Filters without the status choice, used for the status tab counts
+$where_base = $where;
+$params_base = $params;
+if ($status !== '') { $where[] = 'x.status_key = :status';  $params['status'] = $status; }
+$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+// ---------- Count and page ----------
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM ($positions_sql) x $where_sql");
 $stmt->execute($params);
 $total = (int)$stmt->fetchColumn();
+
+// Count per status under the other filters (drives the status tabs)
+$stmt = $pdo->prepare("
+    SELECT x.status_key AS st, COUNT(*) AS n
+    FROM ($positions_sql) x
+    " . ($where_base ? 'WHERE ' . implode(' AND ', $where_base) : '') . "
+    GROUP BY x.status_key
+");
+$stmt->execute($params_base);
+$status_counts = array_map('intval', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
+$status_counts_all = array_sum($status_counts);
 
 $pages = max(1, (int)ceil($total / OFFICER_PAGE_SIZE));
 $page = min($page, $pages);
@@ -142,16 +236,19 @@ $offset = ($page - 1) * OFFICER_PAGE_SIZE;
 $limit = (int)OFFICER_PAGE_SIZE;
 
 $stmt = $pdo->prepare("
-    SELECT o.id, CONCAT(o.last_name, ', ', o.first_name, IF(o.middle_name IS NULL OR o.middle_name = '', '', CONCAT(' ', o.middle_name))) AS full_name,
-           o.role, o.status, co.name AS company_name, p.name AS platoon_name,
-           u.username AS login_username, u.status AS login_status
-    $from_sql
+    SELECT x.*
+    FROM ($positions_sql) x
     $where_sql
-    ORDER BY co.name ASC, (o.role = 'platoon_leader') ASC, p.name ASC, o.last_name ASC, o.first_name ASC, o.id ASC
+    ORDER BY x.company_name ASC, (x.role = 'platoon_leader') ASC, x.platoon_name ASC,
+             (x.status_key = 'inactive') ASC, x.last_name ASC, x.first_name ASC, x.officer_id ASC
     LIMIT $limit OFFSET $offset
 ");
 $stmt->execute($params);
 $officers = $stmt->fetchAll();
+
+// Platoon coverage for the summary line
+$pl_total  = (int)$pdo->query("SELECT COUNT(*) FROM platoons")->fetchColumn();
+$pl_filled = (int)$pdo->query("SELECT COUNT(DISTINCT x.platoon_id) FROM ($positions_sql) x WHERE x.role = 'platoon_leader' AND x.status_key = 'active'")->fetchColumn();
 
 // ---------- Dropdown data ----------
 $companies = $pdo->query("SELECT id, name FROM companies ORDER BY name")->fetchAll();
@@ -208,11 +305,12 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/roster.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/s1_manage.css">
 <script>document.documentElement.classList.add('no-js');</script>
 
 <div class="content-header">
     <h1>Officer Roster</h1>
-    <p>All Company Commanders and Platoon Leaders. Edit details, change an assignment or deactivate an officer.</p>
+    <p>All Company Commanders and Platoon Leaders, including platoons that have no leader yet. Edit details, reassign a Platoon Leader or deactivate an officer.</p>
 </div>
 
 <?php if ($credentials): ?>
@@ -363,8 +461,9 @@ require_once __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <div class="rt-bar">
-    <span>Showing <strong><?= $from ?>-<?= $to ?></strong> of <strong><?= $total ?></strong> officer(s)</span>
-    <span class="rt-bar-links">
+    <span>Showing <strong><?= $from ?>-<?= $to ?></strong> of <strong><?= $total ?></strong> position(s)
+        &middot; <strong><?= $pl_filled ?></strong> of <strong><?= $pl_total ?></strong> platoons have a Platoon Leader</span>
+    <span class="rt-bar-links" style="display:inline-flex;align-items:center;gap:14px;">
         <?php if ($missing_logins > 0): ?>
             <form action="<?= BASE_URL ?>/s1/officers.php" method="POST" style="display:inline;">
                 <?= csrf_field() ?>
@@ -376,7 +475,15 @@ require_once __DIR__ . '/../includes/header.php';
     </span>
 </div>
 
-<div class="table-responsive rt-wrap">
+<nav class="s1-tabs" aria-label="Filter by status">
+    <a class="s1-tab <?= $status === '' ? 'active' : '' ?>" href="<?= e(officer_roster_without($filters, 'status')) ?>">All <b><?= (int)$status_counts_all ?></b></a>
+    <?php foreach ($status_labels as $key => $label): ?>
+        <a class="s1-tab <?= $status === $key ? 'active' : '' ?> <?= $key === 'vacant' && ($status_counts[$key] ?? 0) > 0 ? 's1-tab-warn' : '' ?>"
+           href="<?= e(officer_roster_url(['status' => $key] + $filters, 1)) ?>"><?= e($label) ?> <b><?= (int)($status_counts[$key] ?? 0) ?></b></a>
+    <?php endforeach; ?>
+</nav>
+
+<div class="table-responsive rt-wrap s1-rt">
     <table class="data-table">
         <thead>
             <tr>
@@ -384,7 +491,6 @@ require_once __DIR__ . '/../includes/header.php';
                 <th>Role</th>
                 <th>Company</th>
                 <th>Platoon</th>
-                <th>Login</th>
                 <th>Status</th>
                 <th>Action</th>
             </tr>
@@ -392,7 +498,7 @@ require_once __DIR__ . '/../includes/header.php';
         <tbody>
             <?php if (!$officers): ?>
                 <tr>
-                    <td colspan="7" class="rt-empty">
+                    <td colspan="6" class="rt-empty">
                         <strong>No officers found</strong>
                         <?php if ($chips): ?>
                             Try removing a filter or <a href="<?= BASE_URL ?>/s1/officers.php">reset all filters</a>.
@@ -403,22 +509,60 @@ require_once __DIR__ . '/../includes/header.php';
                 </tr>
             <?php endif; ?>
             <?php foreach ($officers as $o): ?>
-                <tr>
-                    <td class="rt-name"><?= e($o['full_name']) ?></td>
-                    <td><?= e($role_labels[$o['role']] ?? $o['role']) ?></td>
+                <?php
+                    $is_vacant = ($o['status_key'] === 'vacant');
+                    $is_pl     = ($o['role'] === 'platoon_leader');
+                    $account_only = (!$is_vacant && $o['officer_id'] === null); // registered account with no officer record yet
+                    $initials  = $is_vacant ? '?' : mb_strtoupper(mb_substr((string)$o['first_name'], 0, 1) . mb_substr((string)$o['last_name'], 0, 1));
+                ?>
+                <tr class="<?= $is_vacant ? 's1-row-attn' : '' ?>">
+                    <td class="rt-name">
+                        <div class="s1-person">
+                            <span class="s1-avatar <?= $is_vacant ? 's1-avatar-vacant' : '' ?>" aria-hidden="true"><?= e($initials) ?></span>
+                            <div>
+                                <?php if ($is_vacant): ?>
+                                    <div class="s1-person-name rt-muted">Vacant</div>
+                                    <div class="s1-person-sub">No active Platoon Leader</div>
+                                <?php else: ?>
+                                    <div class="s1-person-name"><?= e($o['full_name']) ?></div>
+                                    <div class="s1-person-sub">
+                                        <?php if ($account_only): ?>
+                                            <?= e($o['login_username']) ?> (registered account)
+                                        <?php elseif ($o['login_username'] !== null): ?>
+                                            <?= e($o['login_username']) ?><?= in_array($o['login_status'], ['deactivated', 'pending'], true) ? ' (' . e($o['login_status'] === 'pending' ? 'pending approval' : 'deactivated') . ')' : '' ?>
+                                        <?php elseif ($is_pl): ?>
+                                            No login account
+                                        <?php else: ?>
+                                            No login needed
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="s1-prog"><?= e($role_labels[$o['role']] ?? $o['role']) ?></span></td>
                     <td><?= e($o['company_name']) ?></td>
                     <td><?= $o['platoon_name'] !== null ? e($o['platoon_name']) : '<span class="rt-muted">&mdash;</span>' ?></td>
+                    <td><span class="s1-status s1-status-<?= e($o['status_key']) ?>"><i></i><?= e($status_labels[$o['status_key']] ?? $o['status_key']) ?></span></td>
                     <td>
-                        <?php if ($o['login_username'] !== null): ?>
-                            <?= e($o['login_username']) ?><?= in_array($o['login_status'], ['deactivated', 'pending'], true) ? ' <span class="rt-muted">(' . e($o['login_status'] === 'pending' ? 'pending approval' : 'deactivated') . ')</span>' : '' ?>
-                        <?php elseif ($o['role'] === 'platoon_leader'): ?>
-                            <span class="rt-muted">No account</span>
-                        <?php else: ?>
-                            <span class="rt-muted">&mdash;</span>
-                        <?php endif; ?>
+                        <div class="s1-actions">
+                            <?php if ($is_vacant): ?>
+                                <a href="<?= BASE_URL ?>/s1/reassign_officer.php?platoon=<?= (int)$o['platoon_id'] ?>" class="btn btn-sm btn-primary">Assign</a>
+                            <?php elseif ($account_only): ?>
+                                <form action="<?= BASE_URL ?>/s1/officers.php" method="POST" style="display:inline;">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="add_user_leader">
+                                    <input type="hidden" name="user_id" value="<?= (int)$o['user_id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-primary">Add to roster</button>
+                                </form>
+                            <?php else: ?>
+                                <a href="<?= BASE_URL ?>/s1/edit_officer.php?id=<?= (int)$o['officer_id'] ?>" class="btn btn-sm btn-secondary">Edit</a>
+                                <?php if ($is_pl): ?>
+                                    <a href="<?= BASE_URL ?>/s1/reassign_officer.php?id=<?= (int)$o['officer_id'] ?>" class="btn btn-sm btn-secondary">Reassign</a>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
                     </td>
-                    <td><span class="badge <?= $o['status'] === 'active' ? 'badge-approved' : 'badge-deactivated' ?>"><?= e($status_labels[$o['status']] ?? $o['status']) ?></span></td>
-                    <td><a href="<?= BASE_URL ?>/s1/edit_officer.php?id=<?= (int)$o['id'] ?>" class="btn btn-sm btn-secondary">Edit</a></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -444,5 +588,6 @@ require_once __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <script src="<?= BASE_URL ?>/assets/js/roster.js" defer></script>
+<script src="<?= BASE_URL ?>/assets/js/s1_manage.js" defer></script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

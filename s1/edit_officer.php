@@ -265,7 +265,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </optgroup>
             </select>
             <?php if (isset($errors['position'])): ?><span class="field-error"><?= e($errors['position']) ?></span><?php endif; ?>
-            <small>Each company has one Company Commander and each platoon one Platoon Leader.</small>
+            <small>Each company has one Company Commander and each platoon one Platoon Leader. To move or swap a Platoon Leader, use <a href="<?= BASE_URL ?>/s1/reassign_officer.php?id=<?= (int)$id ?>">Reassign</a>.</small>
         </div>
 
         <div class="form-group">
