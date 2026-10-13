@@ -50,7 +50,8 @@ if ($role === 'admin') {
     ];
 } elseif ($role === 'class_president') {
     $nav = [
-        ['Dashboard', '/president/dashboard.php', ['dashboard.php'], 'dashboard'],
+        ['Dashboard',       '/president/dashboard.php',       ['dashboard.php'],       'dashboard'],
+        ['View Attendance', '/president/view_attendance.php', ['view_attendance.php'], 'eye'],
     ];
 } elseif ($role === 'battalion_s1' || $role === 'brigade_s1') {
     $nav = [
