@@ -1,0 +1,38 @@
+/* ==========================================================================
+   Theme toggle  -  icon button (moon in light mode, sun in dark mode).
+   Used in the app header and floating on the auth pages.
+   ========================================================================== */
+
+.theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.theme-toggle:hover { background: var(--hover); color: var(--ink); }
+.theme-toggle:active { transform: scale(.96); }
+.theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.theme-toggle svg {
+    grid-area: 1 / 1;
+    width: 18px;
+    height: 18px;
+    transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+.theme-toggle .icon-sun  { opacity: 0; transform: rotate(-60deg) scale(.7); }
+.theme-toggle .icon-moon { opacity: 1; transform: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun  { opacity: 1; transform: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(60deg) scale(.7); }
+
+/* Auth pages have no header, so the toggle sits in the corner */
+.theme-toggle--floating { position: fixed; top: var(--sp-3); right: var(--sp-3); z-index: var(--z-header); }
+
+/* No JS = no toggle (it could not work) */
+html:not(.js) .theme-toggle { display: none; }

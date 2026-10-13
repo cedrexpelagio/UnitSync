@@ -374,7 +374,7 @@
                 ask({
                     title: 'Mark everyone before submitting',
                     message: '<p style="margin-bottom:10px;"><strong>' + names.length + ' cadet(s)</strong> still need a mark:</p>' +
-                        '<div style="background:#FFF5F5;border:1px solid #FEB2B2;border-radius:6px;padding:10px 12px;color:#C53030;font-size:13px;max-height:140px;overflow-y:auto;">' +
+                        '<div style="background:var(--err-50);border:1px solid var(--err-200);border-radius:6px;padding:10px 12px;color:var(--err-800);font-size:13px;max-height:140px;overflow-y:auto;">' +
                         preview + more + '</div>',
                     confirmText: 'Show them',
                     cancelText: 'Close'
@@ -429,7 +429,7 @@
                 title: 'Remove cadet from platoon',
                 message: '<p style="margin-bottom:12px;">Remove <strong>' + esc(name) + '</strong>' +
                     (code ? ' (' + esc(code) + ')' : '') + ' from your platoon?</p>' +
-                    '<div style="background:#FFF5F5;border:1px solid #FEB2B2;border-radius:6px;padding:10px 12px;color:#C53030;font-size:13px;">' +
+                    '<div style="background:var(--err-50);border:1px solid var(--err-200);border-radius:6px;padding:10px 12px;color:var(--err-800);font-size:13px;">' +
                     '<strong>This cannot be undone here.</strong> The cadet becomes <strong>Unassigned</strong> and only S1 can reassign them.</div>',
                 confirmText: 'Remove cadet',
                 cancelText: 'Cancel',

@@ -5,6 +5,8 @@
    ========================================================================== */
 
 :root {
+    color-scheme: light;
+
     /* ---- Neutral scale (warm gray, slightly olive-tinted) ---- */
     --n-0:   #FFFFFF;
     --n-25:  #FBFBFA;
@@ -13,7 +15,7 @@
     --n-200: #E4E4DF;
     --n-300: #D3D4CE;
     --n-400: #B3B5AD;
-    --n-500: #8B8D85;
+    --n-500: #727469;
     --n-600: #62655D;
     --n-700: #44473F;
     --n-800: #2E3029;
@@ -76,6 +78,7 @@
     --shadow-md: 0 4px 16px rgba(29, 31, 27, .08), 0 1px 3px rgba(29, 31, 27, .06);
     --shadow-lg: 0 16px 48px rgba(29, 31, 27, .14), 0 2px 6px rgba(29, 31, 27, .06);
     --ring: 0 0 0 3px rgba(75, 104, 65, .22);
+    --overlay: rgba(29, 31, 27, .4);   /* scrim behind modals and drawers */
 
     /* ---- Motion: 3 durations, 2 easings ---- */
     --dur-1: 120ms;   /* hover, press, colour changes   */

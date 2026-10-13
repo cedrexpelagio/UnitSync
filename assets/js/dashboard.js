@@ -298,7 +298,7 @@
             '</div>' +
             '<div class="db-line-wrap">' +
               '<svg class="db-line-svg" viewBox="0 0 ' + W + ' ' + H + '" tabindex="0" role="img" aria-label="Line graph of total cadets over time. Use left and right arrow keys to read each date.">' +
-                '<defs><linearGradient id="db-area-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E7D32" stop-opacity="0.28"/><stop offset="1" stop-color="#2E7D32" stop-opacity="0"/></linearGradient></defs>' +
+                '<defs><linearGradient id="db-area-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ok-600);stop-opacity:.28"/><stop offset="1" style="stop-color:var(--ok-600);stop-opacity:0"/></linearGradient></defs>' +
                 grid + labels +
                 '<path class="db-line-area" d="' + areaD + '"/>' +
                 '<path class="db-line-path" pathLength="1" d="' + lineD + '"/>' + dots +

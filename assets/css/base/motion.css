@@ -18,6 +18,12 @@
     animation: us-shimmer 1.4s linear infinite;
 }
 
+/* Theme switch: briefly cross-fade colours so the change feels intentional, not abrupt */
+html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+    transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+                color var(--dur-2) var(--ease-out), fill var(--dur-2) var(--ease-out), stroke var(--dur-2) var(--ease-out) !important;
+}
+
 /* Universal reduced-motion rule (replaces six per-file blocks) */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -26,4 +32,5 @@
         transition-duration: .01ms !important;
         scroll-behavior: auto !important;
     }
+    html.theme-switching, html.theme-switching * { transition: none !important; }
 }

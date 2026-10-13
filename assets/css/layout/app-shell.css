@@ -678,4 +678,15 @@ body.app-shell .app-content { padding: var(--sp-6); background: var(--bg); }
 @media (max-width: 768px) {
     body.app-shell .app-sidebar { box-shadow: var(--shadow-lg); }
 }
-.sidebar-backdrop { background: rgba(29, 31, 27, .4); }
+.sidebar-backdrop { background: var(--overlay); }
+
+/* ---- Header actions: theme toggle sits beside the user menu ---- */
+body.app-shell .header-user { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* ---- Profile identity card: flat, theme-aware (was a dark-green gradient hero) ---- */
+.us-identity { color: var(--ink); background: var(--surface); border: 1px solid var(--line); box-shadow: none; }
+.us-identity::before { display: none; }
+.us-avatar-lg { color: var(--a-800); background: var(--a-100); box-shadow: none; }
+.us-identity-name { color: var(--ink); }
+.us-identity-user { color: var(--muted); }
+.us-role-pill { color: var(--a-800); background: var(--a-50); border: 1px solid var(--a-200); }

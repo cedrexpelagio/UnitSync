@@ -14,10 +14,12 @@ $page_title = $page_title ?? 'UnitSync';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php require __DIR__ . '/theme_head.php'; ?>
     <title><?= e($page_title) ?> - UnitSync</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/app-shell.css">
     <script src="<?= BASE_URL ?>/assets/js/app-shell.js" defer></script>
+    <script src="<?= BASE_URL ?>/assets/js/theme.js" defer></script>
 </head>
 <body class="app-shell">
     <header class="app-header">
@@ -30,6 +32,7 @@ $page_title = $page_title ?? 'UnitSync';
             <span class="brand-name">Unit<span>Sync</span></span>
         </div>
         <div class="header-user">
+            <?php require __DIR__ . '/theme_toggle.php'; ?>
             <?php if ($user): ?>
                 <?php
                     $full_name = trim($user['first_name'] . ' ' . $user['last_name']);

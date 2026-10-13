@@ -9,6 +9,8 @@
    ========================================================================== */
 
 :root {
+    color-scheme: light;
+
     /* ---- Neutral scale (warm gray, slightly olive-tinted) ---- */
     --n-0:   #FFFFFF;
     --n-25:  #FBFBFA;
@@ -17,7 +19,7 @@
     --n-200: #E4E4DF;
     --n-300: #D3D4CE;
     --n-400: #B3B5AD;
-    --n-500: #8B8D85;
+    --n-500: #727469;
     --n-600: #62655D;
     --n-700: #44473F;
     --n-800: #2E3029;
@@ -80,6 +82,7 @@
     --shadow-md: 0 4px 16px rgba(29, 31, 27, .08), 0 1px 3px rgba(29, 31, 27, .06);
     --shadow-lg: 0 16px 48px rgba(29, 31, 27, .14), 0 2px 6px rgba(29, 31, 27, .06);
     --ring: 0 0 0 3px rgba(75, 104, 65, .22);
+    --overlay: rgba(29, 31, 27, .4);   /* scrim behind modals and drawers */
 
     /* ---- Motion: 3 durations, 2 easings ---- */
     --dur-1: 120ms;   /* hover, press, colour changes   */
@@ -101,6 +104,101 @@
     --radius-default: var(--r-md);  --radius-badge: var(--r-pill);
     --card-shadow: var(--shadow-xs);
     --transition-speed: var(--dur-2);
+}
+
+/* ---- base/theme-dark.css ---- */
+/* ==========================================================================
+   Dark theme  -  token overrides ONLY. No component needs to know about dark mode.
+   Applied when <html data-theme="dark"> (set by the head script / theme toggle),
+   or when the OS prefers dark and the user has not chosen (see build.py, which
+   mirrors this block into a prefers-color-scheme media query for you).
+   Scale names are kept; their meaning flips: n-0 = surface, n-900 = primary text,
+   a-700 = accent (lighter olive so it reads on dark), *-50 = tint, *-800 = text on tint.
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Neutrals (warm, olive-tinted) */
+    --n-0:   #1A1C18;
+    --n-25:  #141612;
+    --n-50:  #1F221D;
+    --n-100: #272A24;
+    --n-200: #31342D;
+    --n-300: #42463D;
+    --n-400: #5C6054;
+    --n-500: #868B7F;
+    --n-600: #A3A89B;
+    --n-700: #C3C7BB;
+    --n-800: #DCDFD4;
+    --n-900: #F0F2EA;
+
+    /* Accent */
+    --a-50:  #1E2A1B;
+    --a-100: #27361F;
+    --a-200: #38502E;
+    --a-500: #7FA16D;
+    --a-600: #93B481;
+    --a-700: #9DC08A;
+    --a-800: #B7D5A6;
+    --a-900: #D5E7C9;
+
+    /* Status: tint / border / solid / text */
+    --ok-50:   #16261A;  --ok-200:   #2B5A33;  --ok-600:   #5DBB66;  --ok-800:   #A8E0AE;
+    --warn-50: #2A2111;  --warn-200: #5E4619;  --warn-600: #E3A532;  --warn-800: #F3D28E;
+    --err-50:  #2B1715;  --err-200:  #6B2D28;  --err-600:  #F2776D;  --err-800:  #F8B9B3;
+    --info-50: #14232D;  --info-200: #284A60;  --info-600: #6CB6E2;  --info-800: #AAD7F1;
+
+    /* Elevation: deeper shadows, because dark surfaces need more separation */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
+    --ring: 0 0 0 3px rgba(157, 192, 138, .3);
+    --overlay: rgba(0, 0, 0, .62);
+}
+
+/* Generated: OS preference fallback (only when no data-theme is set) */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+    color-scheme: dark;
+
+    /* Neutrals (warm, olive-tinted) */
+    --n-0:   #1A1C18;
+    --n-25:  #141612;
+    --n-50:  #1F221D;
+    --n-100: #272A24;
+    --n-200: #31342D;
+    --n-300: #42463D;
+    --n-400: #5C6054;
+    --n-500: #868B7F;
+    --n-600: #A3A89B;
+    --n-700: #C3C7BB;
+    --n-800: #DCDFD4;
+    --n-900: #F0F2EA;
+
+    /* Accent */
+    --a-50:  #1E2A1B;
+    --a-100: #27361F;
+    --a-200: #38502E;
+    --a-500: #7FA16D;
+    --a-600: #93B481;
+    --a-700: #9DC08A;
+    --a-800: #B7D5A6;
+    --a-900: #D5E7C9;
+
+    /* Status: tint / border / solid / text */
+    --ok-50:   #16261A;  --ok-200:   #2B5A33;  --ok-600:   #5DBB66;  --ok-800:   #A8E0AE;
+    --warn-50: #2A2111;  --warn-200: #5E4619;  --warn-600: #E3A532;  --warn-800: #F3D28E;
+    --err-50:  #2B1715;  --err-200:  #6B2D28;  --err-600:  #F2776D;  --err-800:  #F8B9B3;
+    --info-50: #14232D;  --info-200: #284A60;  --info-600: #6CB6E2;  --info-800: #AAD7F1;
+
+    /* Elevation: deeper shadows, because dark surfaces need more separation */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
+    --ring: 0 0 0 3px rgba(157, 192, 138, .3);
+    --overlay: rgba(0, 0, 0, .62);
+    }
 }
 
 /* ---- base/reset.css ---- */
@@ -165,6 +263,12 @@ table, .tabular, [data-count] { font-variant-numeric: tabular-nums; }
     animation: us-shimmer 1.4s linear infinite;
 }
 
+/* Theme switch: briefly cross-fade colours so the change feels intentional, not abrupt */
+html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+    transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+                color var(--dur-2) var(--ease-out), fill var(--dur-2) var(--ease-out), stroke var(--dur-2) var(--ease-out) !important;
+}
+
 /* Universal reduced-motion rule (replaces six per-file blocks) */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -173,6 +277,7 @@ table, .tabular, [data-count] { font-variant-numeric: tabular-nums; }
         transition-duration: .01ms !important;
         scroll-behavior: auto !important;
     }
+    html.theme-switching, html.theme-switching * { transition: none !important; }
 }
 
 /* ---- layout/app-shell.css ---- */
@@ -856,7 +961,18 @@ body.app-shell .app-content { padding: var(--sp-6); background: var(--bg); }
 @media (max-width: 768px) {
     body.app-shell .app-sidebar { box-shadow: var(--shadow-lg); }
 }
-.sidebar-backdrop { background: rgba(29, 31, 27, .4); }
+.sidebar-backdrop { background: var(--overlay); }
+
+/* ---- Header actions: theme toggle sits beside the user menu ---- */
+body.app-shell .header-user { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* ---- Profile identity card: flat, theme-aware (was a dark-green gradient hero) ---- */
+.us-identity { color: var(--ink); background: var(--surface); border: 1px solid var(--line); box-shadow: none; }
+.us-identity::before { display: none; }
+.us-avatar-lg { color: var(--a-800); background: var(--a-100); box-shadow: none; }
+.us-identity-name { color: var(--ink); }
+.us-identity-user { color: var(--muted); }
+.us-role-pill { color: var(--a-800); background: var(--a-50); border: 1px solid var(--a-200); }
 
 /* ---- layout/auth-card.css ---- */
 /* ==========================================================================
@@ -1369,7 +1485,7 @@ body.app-shell .app-content { padding: var(--sp-6); background: var(--bg); }
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(29, 31, 27, .4);
+    background-color: var(--overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1464,6 +1580,46 @@ body.app-shell .app-content { padding: var(--sp-6); background: var(--bg); }
 .toast-error { border-left: 4px solid var(--error); }
 .toast-warning { border-left: 4px solid var(--warning); }
 .toast-info { border-left: 4px solid var(--info); }
+
+/* ---- components/theme-toggle.css ---- */
+/* ==========================================================================
+   Theme toggle  -  icon button (moon in light mode, sun in dark mode).
+   Used in the app header and floating on the auth pages.
+   ========================================================================== */
+
+.theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.theme-toggle:hover { background: var(--hover); color: var(--ink); }
+.theme-toggle:active { transform: scale(.96); }
+.theme-toggle:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.theme-toggle svg {
+    grid-area: 1 / 1;
+    width: 18px;
+    height: 18px;
+    transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+.theme-toggle .icon-sun  { opacity: 0; transform: rotate(-60deg) scale(.7); }
+.theme-toggle .icon-moon { opacity: 1; transform: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun  { opacity: 1; transform: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(60deg) scale(.7); }
+
+/* Auth pages have no header, so the toggle sits in the corner */
+.theme-toggle--floating { position: fixed; top: var(--sp-3); right: var(--sp-3); z-index: var(--z-header); }
+
+/* No JS = no toggle (it could not work) */
+html:not(.js) .theme-toggle { display: none; }
 
 /* ==========================================================================
    Leader: take-attendance sheet

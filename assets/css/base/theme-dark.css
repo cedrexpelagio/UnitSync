@@ -1,0 +1,49 @@
+/* ==========================================================================
+   Dark theme  -  token overrides ONLY. No component needs to know about dark mode.
+   Applied when <html data-theme="dark"> (set by the head script / theme toggle),
+   or when the OS prefers dark and the user has not chosen (see build.py, which
+   mirrors this block into a prefers-color-scheme media query for you).
+   Scale names are kept; their meaning flips: n-0 = surface, n-900 = primary text,
+   a-700 = accent (lighter olive so it reads on dark), *-50 = tint, *-800 = text on tint.
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Neutrals (warm, olive-tinted) */
+    --n-0:   #1A1C18;
+    --n-25:  #141612;
+    --n-50:  #1F221D;
+    --n-100: #272A24;
+    --n-200: #31342D;
+    --n-300: #42463D;
+    --n-400: #5C6054;
+    --n-500: #868B7F;
+    --n-600: #A3A89B;
+    --n-700: #C3C7BB;
+    --n-800: #DCDFD4;
+    --n-900: #F0F2EA;
+
+    /* Accent */
+    --a-50:  #1E2A1B;
+    --a-100: #27361F;
+    --a-200: #38502E;
+    --a-500: #7FA16D;
+    --a-600: #93B481;
+    --a-700: #9DC08A;
+    --a-800: #B7D5A6;
+    --a-900: #D5E7C9;
+
+    /* Status: tint / border / solid / text */
+    --ok-50:   #16261A;  --ok-200:   #2B5A33;  --ok-600:   #5DBB66;  --ok-800:   #A8E0AE;
+    --warn-50: #2A2111;  --warn-200: #5E4619;  --warn-600: #E3A532;  --warn-800: #F3D28E;
+    --err-50:  #2B1715;  --err-200:  #6B2D28;  --err-600:  #F2776D;  --err-800:  #F8B9B3;
+    --info-50: #14232D;  --info-200: #284A60;  --info-600: #6CB6E2;  --info-800: #AAD7F1;
+
+    /* Elevation: deeper shadows, because dark surfaces need more separation */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .35);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
+    --ring: 0 0 0 3px rgba(157, 192, 138, .3);
+    --overlay: rgba(0, 0, 0, .62);
+}

@@ -1,5 +1,6 @@
 /* Development entry point (uses @import). Production pages load core.css, which build.py generates. */
 @import url('base/tokens.css');
+@import url('base/theme-dark.css');
 @import url('base/reset.css');
 @import url('base/motion.css');
 @import url('layout/app-shell.css');
@@ -14,3 +15,4 @@
 @import url('components/badge.css');
 @import url('components/modal.css');
 @import url('components/toast.css');
+@import url('components/theme-toggle.css');
