@@ -400,3 +400,14 @@
 .s1-decide .s1-actions { margin-top: 12px; }
 .s1-decide .btn-block + .btn-block { margin-top: 8px; }
 @media (max-width: 960px) { .s1-rv-side.s1-side-after { order: 0; } }
+
+/* ---------- Officer roster additions ---------- */
+.s1-status-vacant { background: #FEF3C7; color: #92400E; }
+.s1-status-inactive { background: #E2E8F0; color: #475569; }
+.s1-avatar-vacant { background: #FEF3C7; border-color: #F6E05E; color: #92400E; }
+.s1-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.s1-swap { display: none; margin-top: 10px; padding: 10px 12px; border: 1px solid #F6E05E; border-radius: 8px; background: #FFFBEB; font-size: 13px; }
+.s1-swap.show { display: block; }
+.s1-swap label { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; color: var(--green-900); }
+.s1-preview { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--gold-500); background: var(--gray-50); border-radius: 0 8px 8px 0; font-size: 13px; color: var(--gray-700); }
+.s1-preview:empty { display: none; }
