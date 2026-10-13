@@ -1,0 +1,55 @@
+/* ==========================================================================
+   Centered card layout (legacy auth pages)
+   
+   ========================================================================== */
+
+/* Page Before Sign In (Centered Card Layout) */
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 16px;
+}
+
+.auth-brand {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.auth-brand .logo-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--green-900);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.auth-card {
+    background: var(--white);
+    width: 100%;
+    max-width: 350px;
+    border-radius: var(--radius-default);
+    box-shadow: var(--card-shadow);
+    padding: 32px 24px;
+    border: 1px solid var(--gray-300);
+}
+
+.auth-card header {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.auth-card header h2 {
+    font-size: 18px;
+    color: var(--green-900);
+    margin-bottom: 8px;
+}
+
+.auth-card header p {
+    font-size: 12px;
+    color: var(--gray-700);
+}

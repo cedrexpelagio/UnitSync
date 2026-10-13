@@ -1,0 +1,180 @@
+/* UnitSync - App shell behaviour: mobile drawer, user menu, profile form.
+   Loaded with `defer` from header.php. No dependencies. */
+(function () {
+    'use strict';
+
+    var MOBILE_MQ = window.matchMedia('(max-width: 768px)');
+    var body = document.body;
+    if (!body.classList.contains('app-shell')) return;
+
+    /* ---------------------------------------------------------------------
+       Mobile drawer
+       The toggle is handled here in the capture phase and the event is
+       stopped, so any older handler bound to #mobile-nav-toggle in another
+       script will not fire a second time and cancel this one out.
+       --------------------------------------------------------------------- */
+    var sidebar = document.getElementById('app-sidebar');
+    var toggle = document.getElementById('mobile-nav-toggle');
+    var backdrop = null;
+
+    if (sidebar && toggle) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'sidebar-backdrop';
+        backdrop.setAttribute('aria-hidden', 'true');
+        body.appendChild(backdrop);
+
+        toggle.setAttribute('aria-controls', 'app-sidebar');
+        toggle.setAttribute('aria-expanded', 'false');
+
+        var setDrawer = function (open) {
+            sidebar.classList.toggle('drawer-open', open);
+            body.classList.toggle('nav-open', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest) return;
+            if (e.target.closest('#mobile-nav-toggle')) {
+                e.stopPropagation();
+                e.preventDefault();
+                setDrawer(!sidebar.classList.contains('drawer-open'));
+            }
+        }, true);
+
+        backdrop.addEventListener('click', function () { setDrawer(false); });
+
+        sidebar.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('a')) setDrawer(false);
+        });
+
+        var onViewportChange = function (e) { if (!e.matches) setDrawer(false); };
+        if (MOBILE_MQ.addEventListener) MOBILE_MQ.addEventListener('change', onViewportChange);
+        else if (MOBILE_MQ.addListener) MOBILE_MQ.addListener(onViewportChange);
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && sidebar.classList.contains('drawer-open')) {
+                setDrawer(false);
+                toggle.focus();
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------------------
+       User menu: close on outside click and Escape
+       (Sign out is intentionally left to the existing handler on #signout-btn.)
+       --------------------------------------------------------------------- */
+    var menu = document.getElementById('user-menu');
+    if (menu) {
+        document.addEventListener('click', function (e) {
+            if (menu.open && !menu.contains(e.target)) menu.open = false;
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && menu.open) {
+                menu.open = false;
+                var summary = menu.querySelector('summary');
+                if (summary) summary.focus();
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------------------
+       Profile form: dirty tracking, inline validation, live identity card
+       --------------------------------------------------------------------- */
+    var form = document.getElementById('profile-form');
+    if (!form) return;
+
+    var saveBtn = document.getElementById('profile-save');
+    var resetBtn = document.getElementById('profile-reset');
+    var inputs = Array.prototype.slice.call(form.querySelectorAll('input.us-input:not([readonly])'));
+    var liveName = document.querySelector('[data-live-name]');
+    var liveInitials = document.querySelector('[data-live-initials]');
+    var liveUser = document.querySelector('[data-live-username]');
+    var initial = {};
+
+    var NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'\-]*$/u;
+    var USER_RE = /^[A-Za-z0-9._-]{3,30}$/;
+
+    // data-original holds the saved value, so a re-rendered form with posted
+    // (invalid) values still counts as unsaved.
+    inputs.forEach(function (el) {
+        initial[el.name] = el.hasAttribute('data-original') ? el.getAttribute('data-original') : el.value;
+    });
+
+    function fieldOf(el) { return el.closest('.us-field'); }
+
+    function validate(el) {
+        var v = el.value.trim();
+        var msg = '';
+        if (el.name === 'username') {
+            if (!USER_RE.test(v)) msg = 'Use 3-30 letters, numbers, dots, dashes or underscores.';
+        } else {
+            if (v === '') msg = 'This field is required.';
+            else if (v.length > 50) msg = 'Keep it to 50 characters or fewer.';
+            else if (!NAME_RE.test(v)) msg = 'Use letters, spaces, hyphens, apostrophes or periods only.';
+        }
+        var wrap = fieldOf(el);
+        var err = wrap && wrap.querySelector('.us-error');
+        if (wrap) wrap.classList.toggle('has-error', msg !== '');
+        if (err) err.textContent = msg;
+        el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        return msg === '';
+    }
+
+    function isDirty() {
+        return inputs.some(function (el) { return el.value !== initial[el.name]; });
+    }
+
+    function syncIdentity() {
+        var first = (form.elements.first_name && form.elements.first_name.value.trim()) || '';
+        var last = (form.elements.last_name && form.elements.last_name.value.trim()) || '';
+        if (liveName) liveName.textContent = (first + ' ' + last).trim();
+        if (liveInitials) {
+            var s = (first.charAt(0) + last.charAt(0)).toUpperCase();
+            liveInitials.textContent = s || '?';
+        }
+        var un = form.elements.username;
+        if (liveUser && un && !un.readOnly) {
+            liveUser.textContent = un.value.trim() || initial.username || '';
+        }
+    }
+
+    function syncButtons() {
+        var dirty = isDirty();
+        if (saveBtn) saveBtn.disabled = !dirty;
+        if (resetBtn) resetBtn.disabled = !dirty;
+    }
+
+    inputs.forEach(function (el) {
+        el.addEventListener('input', function () {
+            if (fieldOf(el).classList.contains('has-error')) validate(el);
+            syncIdentity();
+            syncButtons();
+        });
+        el.addEventListener('blur', function () { validate(el); });
+    });
+
+    form.addEventListener('submit', function (e) {
+        var ok = true;
+        inputs.forEach(function (el) { el.value = el.value.trim(); if (!validate(el)) ok = false; });
+        if (!ok) {
+            e.preventDefault();
+            var bad = form.querySelector('.has-error input');
+            if (bad) bad.focus();
+        }
+    });
+
+    form.addEventListener('reset', function (e) {
+        e.preventDefault();
+        inputs.forEach(function (el) {
+            el.value = initial[el.name];
+            var wrap = fieldOf(el), err = wrap && wrap.querySelector('.us-error');
+            if (wrap) wrap.classList.remove('has-error');
+            if (err) err.textContent = '';
+            el.removeAttribute('aria-invalid');
+        });
+        syncIdentity();
+        syncButtons();
+    });
+
+    syncButtons();
+})();

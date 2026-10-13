@@ -1,0 +1,55 @@
+/* ==========================================================================
+   Buttons
+   One primary action per view. Everything else is secondary or ghost.
+   States: hover (colour), press (1.5% scale), focus-visible (ring), disabled, loading.
+   ========================================================================== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 36px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-medium);
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out),
+                color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.btn:hover { text-decoration: none; }
+.btn:active { transform: scale(.985); }
+.btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.btn:disabled, .btn[aria-disabled="true"], .btn.is-loading { opacity: .5; pointer-events: none; }
+
+.btn-primary { background-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background-color: var(--accent-hover); color: var(--on-accent); }
+
+.btn-secondary { background-color: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+.btn-secondary:hover { background-color: var(--hover); color: var(--ink); }
+
+.btn-ghost { background-color: transparent; color: var(--ink-2); }
+.btn-ghost:hover { background-color: var(--hover); color: var(--ink); }
+
+.btn-success { background-color: var(--ok-600); color: var(--n-0); }
+.btn-success:hover { background-color: var(--ok-800); color: var(--n-0); }
+.btn-danger  { background-color: var(--err-600); color: var(--n-0); }
+.btn-danger:hover  { background-color: var(--err-800); color: var(--n-0); }
+.btn-warning { background-color: var(--warn-600); color: var(--n-0); }
+.btn-warning:hover { background-color: var(--warn-800); color: var(--n-0); }
+
+.btn-sm { min-height: 28px; padding: 0 10px; font-size: var(--fs-sm); border-radius: var(--r-sm); }
+.btn-block { width: 100%; }
+
+/* Loading: spinner replaces nothing, it simply appears after the label */
+.btn.is-loading::after {
+    content: ""; width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid currentColor; border-right-color: transparent;
+    animation: us-spin .7s linear infinite;
+}

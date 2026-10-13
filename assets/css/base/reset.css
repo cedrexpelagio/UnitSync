@@ -1,0 +1,39 @@
+/* Reset + document defaults */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+
+body {
+    font-family: var(--font-stack);
+    font-size: var(--fs-md);
+    line-height: var(--lh-base);
+    color: var(--ink-2);
+    background-color: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { color: var(--ink); font-weight: var(--fw-semibold); line-height: var(--lh-tight); letter-spacing: -.01em; }
+
+a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+    text-underline-offset: 2px;
+    transition: color var(--dur-1) var(--ease-out), text-decoration-color var(--dur-1) var(--ease-out);
+}
+a:hover { color: var(--accent-hover); text-decoration-color: currentColor; }
+
+img, svg { max-width: 100%; }
+table { border-collapse: collapse; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:disabled { cursor: not-allowed; }
+
+/* One focus ring for the whole product */
+:focus-visible { outline: 2px solid var(--a-600); outline-offset: 2px; border-radius: var(--r-sm); }
+
+/* Numbers in data views align and don't jitter */
+table, .tabular, [data-count] { font-variant-numeric: tabular-nums; }
+
+::selection { background: var(--a-100); color: var(--ink); }

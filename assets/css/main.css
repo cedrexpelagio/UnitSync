@@ -1,0 +1,16 @@
+/* Development entry point (uses @import). Production pages load core.css, which build.py generates. */
+@import url('base/tokens.css');
+@import url('base/reset.css');
+@import url('base/motion.css');
+@import url('layout/app-shell.css');
+@import url('layout/auth-card.css');
+@import url('layout/page-header.css');
+@import url('components/button.css');
+@import url('components/form.css');
+@import url('components/banner.css');
+@import url('components/card.css');
+@import url('components/table.css');
+@import url('components/tabs.css');
+@import url('components/badge.css');
+@import url('components/modal.css');
+@import url('components/toast.css');

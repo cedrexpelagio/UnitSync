@@ -1,0 +1,100 @@
+/* ==========================================================================
+   UnitSync design tokens  -  the single source of truth for the visual system.
+   Rule of thumb: pages and components never hard-code a colour, radius,
+   shadow, duration or easing. They reference a token from this file.
+   ========================================================================== */
+
+:root {
+    /* ---- Neutral scale (warm gray, slightly olive-tinted) ---- */
+    --n-0:   #FFFFFF;
+    --n-25:  #FBFBFA;
+    --n-50:  #F6F6F3;
+    --n-100: #EFEFEB;
+    --n-200: #E4E4DF;
+    --n-300: #D3D4CE;
+    --n-400: #B3B5AD;
+    --n-500: #8B8D85;
+    --n-600: #62655D;
+    --n-700: #44473F;
+    --n-800: #2E3029;
+    --n-900: #1D1F1B;
+
+    /* ---- Accent: olive green. The only brand / action colour. ---- */
+    --a-50:  #F1F4EE;
+    --a-100: #E3EADD;
+    --a-200: #C9D6C0;
+    --a-500: #5F7D52;
+    --a-600: #4B6841;
+    --a-700: #3B5232;
+    --a-800: #2F4328;
+    --a-900: #243321;
+
+    /* ---- Semantic status colours: tint / border / solid / text ---- */
+    --ok-50:   #EEF6EF;  --ok-200:   #C5E0C8;  --ok-600:   #2E7D32;  --ok-800:   #1F5A23;
+    --warn-50: #FDF5E6;  --warn-200: #F1D9A8;  --warn-600: #B26A00;  --warn-800: #7A4A00;
+    --err-50:  #FDF0EE;  --err-200:  #F3C6C1;  --err-600:  #B3261E;  --err-800:  #8A1C16;
+    --info-50: #EDF4F9;  --info-200: #C3DAEA;  --info-600: #1F5F8B;  --info-800: #164866;
+
+    /* ---- Semantic roles (what components should actually use) ---- */
+    --bg:           var(--n-25);
+    --surface:      var(--n-0);
+    --surface-sunk: var(--n-50);
+    --hover:        var(--n-100);
+    --line:         var(--n-200);
+    --line-strong:  var(--n-300);
+    --ink:          var(--n-900);
+    --ink-2:        var(--n-700);
+    --muted:        var(--n-600);
+    --faint:        var(--n-500);
+    --accent:       var(--a-700);
+    --accent-hover: var(--a-800);
+    --accent-soft:  var(--a-50);
+    --on-accent:    var(--n-0);
+
+    /* Attendance statuses map onto the semantic set (one system, not two) */
+    --st-present: var(--ok-600);
+    --st-late:    var(--warn-600);
+    --st-absent:  var(--err-600);
+    --st-excused: var(--info-600);
+
+    /* ---- Typography ---- */
+    --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono:  ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --fs-xs: 12px;  --fs-sm: 13px;  --fs-md: 14px;  --fs-lg: 16px;  --fs-xl: 20px;  --fs-2xl: 24px;
+    --fw-regular: 400;  --fw-medium: 500;  --fw-semibold: 600;
+    --lh-tight: 1.25;   --lh-base: 1.5;
+
+    /* ---- Spacing (4px grid) ---- */
+    --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;
+    --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+
+    /* ---- Shape ---- */
+    --r-sm: 6px;  --r-md: 8px;  --r-lg: 12px;  --r-pill: 999px;
+
+    /* ---- Elevation: flat by default, shadow only for things that float ---- */
+    --shadow-xs: 0 1px 2px rgba(29, 31, 27, .05);
+    --shadow-md: 0 4px 16px rgba(29, 31, 27, .08), 0 1px 3px rgba(29, 31, 27, .06);
+    --shadow-lg: 0 16px 48px rgba(29, 31, 27, .14), 0 2px 6px rgba(29, 31, 27, .06);
+    --ring: 0 0 0 3px rgba(75, 104, 65, .22);
+
+    /* ---- Motion: 3 durations, 2 easings ---- */
+    --dur-1: 120ms;   /* hover, press, colour changes   */
+    --dur-2: 180ms;   /* small reveals, popovers, tabs  */
+    --dur-3: 280ms;   /* modals, drawers, page elements */
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    --ease-in:  cubic-bezier(.5, 0, .75, 0);
+
+    /* ---- Layering ---- */
+    --z-sticky: 20;  --z-header: 40;  --z-overlay: 80;  --z-modal: 100;  --z-toast: 120;
+
+    /* ---- Legacy aliases: keep every existing stylesheet and template working ---- */
+    --green-900: var(--a-900);  --green-700: var(--a-700);  --green-100: var(--a-100);
+    --gold-500:  var(--a-500);  --gold-100:  var(--a-50);
+    --white: var(--n-0);        --gray-50: var(--n-25);
+    --gray-300: var(--n-300);   --gray-700: var(--n-700);
+    --success: var(--ok-600);   --error: var(--err-600);
+    --warning: var(--warn-600); --info: var(--info-600);
+    --radius-default: var(--r-md);  --radius-badge: var(--r-pill);
+    --card-shadow: var(--shadow-xs);
+    --transition-speed: var(--dur-2);
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UnitSync - App shell preview</title>
+<link rel="stylesheet" href="../assets/css/core.css">
+<link rel="stylesheet" href="../assets/css/pages/s1/dashboard.css">
+</head>
+<body class="app-shell">
+  <header class="app-header">
+    <div class="header-brand">
+      <button class="mobile-nav-toggle" aria-label="Open menu" aria-expanded="false" type="button">&#9776;</button>
+      <span class="brand-mark" aria-hidden="true">U</span>
+      <a class="brand-name" href="#">Unit<span>Sync</span></a>
+    </div>
+    <div class="header-user">
+      <details class="user-menu">
+        <summary><span class="user-avatar">JD</span><span class="user-menu-name">Jane Dela Cruz</span><span class="user-menu-caret">&#9662;</span></summary>
+        <div class="user-menu-panel">
+          <div class="user-menu-info"><div class="user-menu-fullname">Jane Dela Cruz</div><div class="user-menu-username">@jdelacruz</div></div>
+          <button class="user-menu-signout" type="button">Sign out</button>
+        </div>
+      </details>
+    </div>
+  </header>
+  <div class="app-body">
+    <aside class="app-sidebar">
+      <nav class="sidebar-nav"><ul>
+        <li class="active"><a href="#"><i class="nav-icon">&#9632;</i>Dashboard</a></li>
+        <li><a href="#"><i class="nav-icon">&#9679;</i>Roster</a></li>
+        <li><a href="#"><i class="nav-icon">&#9650;</i>Attendance</a></li>
+        <li><a href="#"><i class="nav-icon">&#9670;</i>Reports</a></li>
+      </ul></nav>
+      <div class="sidebar-footer"><a class="sidebar-profile" href="#"><span class="sp-avatar">JD</span><span class="sp-text"><span class="sp-name">Jane Dela Cruz</span><span class="sp-sub">S1 Officer</span></span></a></div>
+    </aside>
+    <main class="app-content">
+      <div class="page-header">
+        <div><h1>Dashboard</h1><p>Attendance and roster health at a glance.</p></div>
+        <div class="page-header-actions"><button class="btn btn-secondary">Export</button><button class="btn btn-primary">New session</button></div>
+      </div>
+      <div class="summary-cards">
+        <div class="summary-card"><h3>Active cadets</h3><div class="metric-number">128</div><a href="#">View roster</a></div>
+        <div class="summary-card"><h3>Present today</h3><div class="metric-number">112</div><a href="#">View sheet</a></div>
+        <div class="summary-card"><h3>Pending approvals</h3><div class="metric-number">4</div><a href="#">Review</a></div>
+      </div>
+      <div class="table-responsive"><table class="data-table">
+        <thead><tr><th>Session</th><th>Date</th><th>Marked</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Drill 14</td><td>Oct 12</td><td>41 / 41</td><td><span class="badge badge-submitted">Submitted</span></td></tr>
+          <tr><td>Class 09</td><td>Oct 10</td><td>38 / 41</td><td><span class="badge badge-draft">Draft</span></td></tr>
+        </tbody></table></div>
+    </main>
+  </div>
+<script src="../assets/js/core.js"></script>
+</body>
+</html>

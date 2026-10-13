@@ -1,0 +1,361 @@
+/* Add Cadet page styles (leader/add_cadet.php)
+   Builds on the tokens defined in style.css (:root variables).
+   All classes are prefixed "ac-" to avoid clashing with global styles. */
+
+.ac-page {
+    max-width: 860px;
+}
+
+/* ---------- Unit / term summary ---------- */
+.ac-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.ac-summary-item {
+    background-color: var(--green-100);
+    border: 1px solid var(--gray-300);
+    border-left: 4px solid var(--green-700);
+    border-radius: var(--radius-default);
+    padding: 12px 16px;
+}
+
+.ac-summary-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--gray-700);
+    margin-bottom: 2px;
+}
+
+.ac-summary-value {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green-900);
+    word-break: break-word;
+}
+
+.ac-summary-value.is-missing {
+    color: var(--warning);
+}
+
+/* ---------- Error summary ---------- */
+.ac-error-summary {
+    background-color: #FDE8E8;
+    border: 1px solid #F8B4B4;
+    border-radius: var(--radius-default);
+    color: var(--error);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.ac-error-summary:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.2);
+}
+
+.ac-error-summary strong {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.ac-error-summary ul {
+    margin-left: 18px;
+}
+
+.ac-error-summary a {
+    color: var(--error);
+}
+
+/* ---------- Form card ---------- */
+.ac-card {
+    background-color: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.ac-card-head {
+    padding: 20px 24px 0;
+}
+
+.ac-card-head h2 {
+    font-size: 18px;
+    color: var(--green-900);
+    margin-bottom: 4px;
+}
+
+.ac-card-head p {
+    font-size: 13px;
+    color: var(--gray-700);
+}
+
+.ac-required-note {
+    color: var(--error);
+    font-weight: 600;
+}
+
+/* ---------- Sections (fieldsets) ---------- */
+.ac-section {
+    border: 0;
+    border-bottom: 1px solid var(--gray-300);
+    padding: 24px;
+    min-width: 0;
+}
+
+.ac-section:last-of-type {
+    border-bottom: 0;
+}
+
+.ac-section legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    float: left; /* keeps legend inside the fieldset flow */
+    margin-bottom: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green-900);
+}
+
+.ac-section legend + * {
+    clear: both;
+}
+
+.ac-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--green-700);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.ac-section-hint {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--gray-700);
+    margin-left: auto;
+}
+
+/* ---------- Grid ---------- */
+.ac-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px 16px;
+}
+
+.ac-col-2 { grid-column: span 2; }
+.ac-col-3 { grid-column: span 3; }
+.ac-col-4 { grid-column: span 4; }
+.ac-col-6 { grid-column: span 6; }
+
+.ac-field {
+    min-width: 0;
+}
+
+.ac-field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-900);
+}
+
+.ac-req {
+    color: var(--error);
+    margin-left: 2px;
+}
+
+.ac-optional {
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--gray-700);
+    margin-left: 4px;
+}
+
+.ac-field .form-control {
+    min-height: 42px;
+}
+
+.ac-field select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%234A4F47' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 1 6 6 11 1'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+}
+
+.ac-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--gray-700);
+}
+
+.ac-field .field-error {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ac-field .form-control.is-valid {
+    border-color: var(--success);
+}
+
+/* ---------- Gender segmented control ---------- */
+.ac-segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.ac-segmented input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ac-segmented label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    background-color: var(--white);
+    color: var(--gray-700);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-speed) ease-out,
+                border-color var(--transition-speed) ease-out,
+                color var(--transition-speed) ease-out;
+}
+
+.ac-segmented label:hover {
+    background-color: var(--gray-50);
+}
+
+.ac-segmented input[type="radio"]:checked + label {
+    background-color: var(--green-100);
+    border-color: var(--green-700);
+    color: var(--green-900);
+    box-shadow: inset 0 0 0 1px var(--green-700);
+}
+
+.ac-segmented input[type="radio"]:focus-visible + label {
+    box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.4);
+    border-color: var(--gold-500);
+}
+
+.ac-segmented.is-invalid label {
+    border-color: var(--error);
+}
+
+/* ---------- Action bar ---------- */
+.ac-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    background-color: var(--gray-50);
+    border-top: 1px solid var(--gray-300);
+}
+
+.ac-actions .btn {
+    min-height: 42px;
+    min-width: 130px;
+}
+
+.ac-actions .btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ac-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: ac-spin 700ms linear infinite;
+}
+
+.is-loading .ac-spinner {
+    display: inline-block;
+}
+
+@keyframes ac-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Locked state when the account can't enroll cadets */
+.ac-card.is-locked .ac-section,
+.ac-card.is-locked .ac-card-head {
+    opacity: 0.55;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+    .ac-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .ac-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ac-col-2,
+    .ac-col-3,
+    .ac-col-4,
+    .ac-col-6 {
+        grid-column: auto;
+    }
+
+    .ac-section {
+        padding: 20px 16px;
+    }
+
+    .ac-card-head {
+        padding: 20px 16px 0;
+    }
+
+    .ac-section-hint {
+        display: none;
+    }
+
+    .ac-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        padding: 16px;
+    }
+}
+
+/* Medium widths: name row wraps to 2 + 1 */
+@media (min-width: 769px) and (max-width: 960px) {
+    .ac-col-2 {
+        grid-column: span 3;
+    }
+}
