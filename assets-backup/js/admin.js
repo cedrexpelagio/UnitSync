@@ -1,0 +1,378 @@
+/* ==========================================================================
+   UnitSync - Admin interactions
+   Progressive enhancement: every page still works with JavaScript off.
+   Uses window.showConfirm / window.showPromptModal from ui.js when present.
+   ========================================================================== */
+(function () {
+    'use strict';
+
+    const doc = document;
+    const root = doc.documentElement;
+    const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const $ = (s, r) => (r || doc).querySelector(s);
+    const $$ = (s, r) => Array.prototype.slice.call((r || doc).querySelectorAll(s));
+
+    root.classList.add('ad-js');
+
+    const store = {
+        get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* ignore */ } }
+    };
+
+    /* ---------- animated numbers ---------- */
+    function initCounts() {
+        $$('[data-count]').forEach(function (el) {
+            const to = parseInt(el.dataset.count, 10) || 0;
+            if (reduce || to < 2) { el.textContent = String(to); return; }
+            const t0 = performance.now();
+            el.textContent = '0';
+            (function step(t) {
+                const p = Math.min(1, (t - t0) / 700);
+                el.textContent = String(Math.round(to * (1 - Math.pow(1 - p, 3))));
+                if (p < 1) requestAnimationFrame(step);
+            })(t0);
+        });
+    }
+
+    /* ---------- "How this page works" guide ---------- */
+    function initGuides() {
+        $$('[data-guide]').forEach(function (panel) {
+            const id = panel.dataset.guide;
+            const key = 'ad-guide-' + id;
+            const toggles = $$('[data-guide-toggle="' + id + '"]');
+
+            function set(open, persist) {
+                panel.classList.toggle('is-collapsed', !open);
+                panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+                toggles.forEach(function (b) { b.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+                if (persist) store.set(key, open ? 'open' : 'closed');
+            }
+            set(store.get(key) !== 'closed', false);
+            toggles.forEach(function (b) {
+                b.addEventListener('click', function () { set(panel.classList.contains('is-collapsed'), true); });
+            });
+            $$('[data-guide-close]', panel).forEach(function (b) {
+                b.addEventListener('click', function () { set(false, true); });
+            });
+        });
+    }
+
+    /* ---------- tabs ---------- */
+    function initTabs() {
+        $$('[data-tabs]').forEach(function (wrap) {
+            const tabs = $$('[data-tab]', wrap);
+            const panels = $$('[data-panel]', wrap);
+            if (!tabs.length) return;
+
+            function show(name, focus) {
+                if (!panels.some(function (p) { return p.dataset.panel === name; })) return;
+                tabs.forEach(function (t) {
+                    const on = t.dataset.tab === name;
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                    t.tabIndex = on ? 0 : -1;
+                    if (on && focus) t.focus();
+                });
+                panels.forEach(function (p) { p.classList.toggle('is-active', p.dataset.panel === name); });
+            }
+
+            wrap.classList.add('ad-tabs-ready');
+            const fromHash = (location.hash || '').replace('#', '');
+            show(panels.some(function (p) { return p.dataset.panel === fromHash; }) ? fromHash : (wrap.dataset.active || tabs[0].dataset.tab), false);
+
+            tabs.forEach(function (t, i) {
+                t.addEventListener('click', function () { show(t.dataset.tab, false); });
+                t.addEventListener('keydown', function (e) {
+                    let n = -1;
+                    if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+                    else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+                    if (n > -1) { e.preventDefault(); show(tabs[n].dataset.tab, true); }
+                });
+            });
+
+            // Links elsewhere on the page that jump to a tab
+            $$('[data-goto-tab]').forEach(function (a) {
+                a.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    show(a.dataset.gotoTab, false);
+                    wrap.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+                });
+            });
+        });
+    }
+
+    /* ---------- chip filters + live search ---------- */
+    function initFilters() {
+        $$('[data-filter]').forEach(function (scope) {
+            const items = $$('[data-item]', scope);
+            const chips = $$('[data-chip]', scope);
+            const sections = $$('[data-section]', scope);
+            const input = $('[data-live-filter]', scope);
+            const empty = $('[data-filter-empty]', scope);
+            const count = $('[data-filter-count]', scope);
+            let tag = 'all';
+
+            sections.forEach(function (s) { s.dataset.wasOpen = s.open ? '1' : '0'; });
+
+            function apply() {
+                const q = input ? input.value.trim().toLowerCase() : '';
+                let shown = 0;
+                items.forEach(function (it) {
+                    const tags = (it.dataset.tags || '').split(' ');
+                    const okTag = tag === 'all' || tags.indexOf(tag) > -1;
+                    const hay = (it.dataset.search || it.textContent).toLowerCase();
+                    const ok = okTag && (!q || hay.indexOf(q) > -1);
+                    it.hidden = !ok;
+                    if (ok) shown++;
+                });
+                const filtering = tag !== 'all' || !!q;
+                sections.forEach(function (s) {
+                    const any = $$('[data-item]', s).some(function (i) { return !i.hidden; });
+                    s.hidden = !any;
+                    if (filtering) { if (any) s.open = true; } else { s.open = s.dataset.wasOpen === '1'; }
+                });
+                if (empty) empty.hidden = shown > 0;
+                if (count) count.textContent = String(shown);
+            }
+
+            chips.forEach(function (c) {
+                c.addEventListener('click', function () {
+                    tag = c.dataset.chip;
+                    chips.forEach(function (o) { o.setAttribute('aria-pressed', o === c ? 'true' : 'false'); });
+                    apply();
+                });
+            });
+            if (input) input.addEventListener('input', apply);
+            apply();
+        });
+
+        // Press "/" to jump to the search box
+        doc.addEventListener('keydown', function (e) {
+            if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+            const t = e.target;
+            if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+            const box = $('[data-focus-key]');
+            if (box) { e.preventDefault(); box.focus(); box.select(); }
+        });
+    }
+
+    /* ---------- confirm / prompt buttons (reuses ui.js modals) ---------- */
+    function plain(html) { const d = doc.createElement('div'); d.innerHTML = html; return d.textContent || ''; }
+
+    function submitForm(form, btn) {
+        if (btn) btn.classList.add('is-loading');
+        form.submit();
+    }
+
+    function initConfirms() {
+        doc.addEventListener('click', async function (e) {
+            const btn = e.target.closest('[data-ad-confirm],[data-ad-prompt]');
+            if (!btn || btn.disabled) return;
+            const form = btn.closest('form');
+            if (!form) return;
+            e.preventDefault();
+            if (btn.dataset.busy) return;
+
+            const o = {
+                title: btn.dataset.title || 'Please confirm',
+                message: btn.dataset.message || '',
+                confirmText: btn.dataset.confirmText || 'Confirm',
+                cancelText: 'Cancel',
+                isDanger: btn.dataset.danger === '1',
+                placeholder: btn.dataset.placeholder || ''
+            };
+            btn.dataset.busy = '1';
+            try {
+                if (btn.hasAttribute('data-ad-prompt')) {
+                    const v = typeof window.showPromptModal === 'function'
+                        ? await window.showPromptModal(o)
+                        : window.prompt(plain(o.message), '');
+                    if (v && String(v).trim()) {
+                        const target = form.querySelector(btn.dataset.target || '[data-reason]');
+                        if (target) target.value = String(v).trim();
+                        submitForm(form, btn);
+                    }
+                } else {
+                    const ok = typeof window.showConfirm === 'function' ? await window.showConfirm(o) : window.confirm(plain(o.message));
+                    if (ok) submitForm(form, btn);
+                }
+            } finally {
+                delete btn.dataset.busy;
+            }
+        });
+    }
+
+    /* ---------- inline validation (no browser bubbles) ---------- */
+    function initValidate() {
+        $$('form[data-validate]').forEach(function (form) {
+            form.noValidate = true;
+            const controls = $$('.ad-input', form);
+            const fieldOf = function (c) { return c.closest('.ad-field'); };
+
+            function paint(c, msg) {
+                const f = fieldOf(c);
+                if (!f) return;
+                f.classList.toggle('has-error', !!msg);
+                const err = $('.ad-err', f);
+                if (err) err.textContent = msg;
+                if (msg) c.setAttribute('aria-invalid', 'true'); else c.removeAttribute('aria-invalid');
+            }
+
+            function check(c) {
+                const v = (c.value || '').trim();
+                let msg = '';
+                if (c.required && !v) {
+                    msg = c.dataset.msg || 'This field is required.';
+                } else if (c.type === 'number' && v !== '') {
+                    const n = Number(v);
+                    const min = c.min !== '' ? Number(c.min) : -Infinity;
+                    const max = c.max !== '' ? Number(c.max) : Infinity;
+                    if (isNaN(n) || n < min || n > max) msg = c.dataset.rangeMsg || ('Enter a number between ' + c.min + ' and ' + c.max + '.');
+                } else if (c.dataset.after && v) {
+                    const other = form.elements[c.dataset.after];
+                    if (other && other.value && v < other.value) msg = c.dataset.afterMsg || 'This date can’t be before the start date.';
+                }
+                paint(c, msg);
+                return !msg;
+            }
+
+            controls.forEach(function (c) {
+                const f = fieldOf(c);
+                c.addEventListener('input', function () {
+                    c.dataset.dirty = '1';
+                    if (f && f.classList.contains('has-error')) check(c);
+                });
+                c.addEventListener('change', function () {
+                    if (c.dataset.after === undefined) { if (f && f.classList.contains('has-error')) check(c); }
+                    // re-check dependants (end date after start date)
+                    controls.forEach(function (d) { if (d.dataset.after === c.name && d.value) check(d); });
+                });
+                c.addEventListener('blur', function () { if (c.dataset.dirty) check(c); });
+            });
+
+            form.addEventListener('submit', function (e) {
+                if (form.dataset.sent) { e.preventDefault(); return; }
+                let first = null;
+                controls.forEach(function (c) {
+                    if (c.disabled || c.type === 'hidden') return;
+                    if (!check(c) && !first) first = c;
+                });
+                if (first) {
+                    e.preventDefault();
+                    $$('.ad-field.has-error', form).forEach(function (f) {
+                        if (reduce) return;
+                        f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+                    });
+                    first.focus();
+                    return;
+                }
+                form.dataset.sent = '1';
+                const submit = $('button[type="submit"]', form);
+                if (submit) submit.classList.add('is-loading');
+            });
+        });
+    }
+
+    /* ---------- show / hide a panel (e.g. "New term") ---------- */
+    function initToggles() {
+        $$('[data-toggle-target]').forEach(function (btn) {
+            const target = doc.getElementById(btn.dataset.toggleTarget);
+            if (!target) return;
+            btn.setAttribute('aria-expanded', target.classList.contains('is-open') ? 'true' : 'false');
+            btn.addEventListener('click', function () {
+                const open = !target.classList.contains('is-open');
+                target.classList.toggle('is-open', open);
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) {
+                    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+                    const f = $('.ad-input', target);
+                    if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 60);
+                }
+            });
+        });
+    }
+
+    /* ---------- auto-submit filter forms ---------- */
+    function initAutoSubmit() {
+        $$('form[data-autosubmit]').forEach(function (form) {
+            $$('select, input[type="date"]', form).forEach(function (c) {
+                c.addEventListener('change', function () { form.submit(); });
+            });
+        });
+    }
+
+    /* ---------- generate-sessions live preview ---------- */
+    function initGenerator() {
+        const form = $('[data-gen]');
+        if (!form) return;
+        const out = $('[data-gen-preview]', form);
+        const text = $('[data-gen-text]', form);
+        const chips = $('[data-gen-chips]', form);
+        const start = form.elements.start_date;
+        const weeks = form.elements.count;
+        const names = form.elements.names;
+        const fmt = function (d) { return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }); };
+
+        function parseNames() {
+            const seen = {}; const list = [];
+            (names.value || '').split(/[,;\r\n]+/).forEach(function (raw) {
+                const n = raw.replace(/\s+/g, ' ').trim();
+                if (!n) return;
+                const k = n.toLowerCase();
+                if (!seen[k]) { seen[k] = 1; list.push(n); }
+            });
+            return list;
+        }
+
+        function update() {
+            const list = parseNames();
+            const n = parseInt(weeks.value, 10);
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start.value || '');
+            chips.textContent = '';
+            out.classList.remove('is-bad');
+
+            if (!m || !n || n < 1 || n > 30 || !list.length) {
+                text.textContent = 'Fill in the date, the number of weeks and at least one session name to see what will be created.';
+                return;
+            }
+            const first = new Date(+m[1], +m[2] - 1, +m[3]);
+            const last = new Date(first.getFullYear(), first.getMonth(), first.getDate() + (n - 1) * 7);
+            if (list.length > 10) {
+                out.classList.add('is-bad');
+                text.textContent = 'That is ' + list.length + ' sessions per day. The limit is 10.';
+                return;
+            }
+            text.textContent = n + ' training day' + (n === 1 ? '' : 's') + ' × ' + list.length + ' session' + (list.length === 1 ? '' : 's')
+                + ' = ' + (n * list.length) + ' sessions. First: ' + fmt(first) + '. Last: ' + fmt(last) + '.';
+            list.forEach(function (s) {
+                const c = doc.createElement('span');
+                c.className = 'ad-sess';
+                c.textContent = s;
+                chips.appendChild(c);
+            });
+        }
+
+        [start, weeks, names].forEach(function (c) { c.addEventListener('input', update); c.addEventListener('change', update); });
+        update();
+    }
+
+    /* ---------- restore buttons after back/forward cache ---------- */
+    window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        $$('.btn.is-loading').forEach(function (b) { b.classList.remove('is-loading'); });
+        $$('form[data-sent]').forEach(function (f) { delete f.dataset.sent; });
+    });
+
+    function init() {
+        initCounts();
+        initGuides();
+        initTabs();
+        initFilters();
+        initConfirms();
+        initValidate();
+        initToggles();
+        initAutoSubmit();
+        initGenerator();
+    }
+
+    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
+})();

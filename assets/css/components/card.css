@@ -1,0 +1,40 @@
+/* ==========================================================================
+   Cards, panels, KPI summary cards, empty states
+   Flat: 1px hairline, no resting shadow. Content provides the hierarchy.
+   ========================================================================== */
+
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+
+.summary-card, .card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    transition: border-color var(--dur-2) var(--ease-out);
+}
+.card { margin-bottom: var(--sp-5); }
+.summary-card:hover { border-color: var(--line-strong); }
+
+.summary-card h3 { margin-bottom: var(--sp-2); font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--muted); letter-spacing: 0; }
+.summary-card .metric-number { margin-bottom: var(--sp-3); font-size: 28px; font-weight: var(--fw-semibold); letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.summary-card a { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+
+.card-title { margin-bottom: var(--sp-4); font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--ink); }
+
+.form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-4); }
+.form-row .form-group { flex: 1; min-width: 200px; }
+
+.table-row-cancelled { background-color: var(--err-50) !important; }
+.table-row-cancelled td { color: var(--faint); }
+
+.empty-state {
+    margin-bottom: var(--sp-5);
+    padding: var(--sp-6);
+    text-align: center;
+    color: var(--muted);
+    background-color: var(--surface-sunk);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r-lg);
+}
+
+.table-actions { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }

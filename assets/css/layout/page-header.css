@@ -1,0 +1,10 @@
+/* ==========================================================================
+   Page header  -  the one pattern every page opens with:
+   title, one-line description, primary action on the right.
+   Existing heroes (.db-hero, .pl-hero, .ad-head) already follow this shape.
+   ========================================================================== */
+
+.page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.page-header h1 { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); letter-spacing: -.02em; color: var(--ink); }
+.page-header p { margin-top: var(--sp-1); color: var(--muted); }
+.page-header-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }

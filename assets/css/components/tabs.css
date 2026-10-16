@@ -1,0 +1,17 @@
+/* ==========================================================================
+   Tabs  -  underline style; the active underline is the only accent.
+   ========================================================================== */
+
+.tabs-nav { display: flex; gap: var(--sp-1); margin-bottom: var(--sp-5); border-bottom: 1px solid var(--line); }
+.tab-link {
+    margin-bottom: -1px;
+    padding: 8px 12px;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: color var(--dur-1) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+}
+.tab-link:hover { color: var(--ink); }
+.tab-link.active { color: var(--ink); border-bottom-color: var(--accent); }

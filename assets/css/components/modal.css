@@ -1,0 +1,62 @@
+/* ==========================================================================
+   Modals
+   
+   ========================================================================== */
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--dur-2) var(--ease-out), visibility var(--dur-2) var(--ease-out);
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-card {
+    background: var(--white);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 480px;
+    width: 90%;
+    padding: 24px;
+    transform: translateY(6px) scale(.985);
+    transition: transform var(--dur-3) var(--ease-out);
+}
+
+.modal-overlay.open .modal-card {
+    transform: none;
+}
+
+.modal-header {
+    margin-bottom: 16px;
+}
+
+.modal-header h3 {
+    font-size: 18px;
+    color: var(--green-900);
+}
+
+.modal-body {
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: var(--gray-700);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}

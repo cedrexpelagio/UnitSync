@@ -1,0 +1,27 @@
+/* ==========================================================================
+   Tables
+   Quiet data: hairline rows, soft hover, tabular numerals. No zebra.
+   ========================================================================== */
+
+.table-responsive {
+    width: 100%;
+    margin-bottom: var(--sp-5);
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+}
+.data-table { width: 100%; font-size: var(--fs-md); text-align: left; background-color: var(--surface); font-variant-numeric: tabular-nums; }
+.data-table th {
+    padding: 10px 16px;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    color: var(--muted);
+    white-space: nowrap;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+.data-table td { padding: 12px 16px; color: var(--ink-2); vertical-align: middle; border-bottom: 1px solid var(--n-100); }
+.data-table tbody tr { transition: background-color var(--dur-1) var(--ease-out); }
+.data-table tbody tr:hover { background-color: var(--surface-sunk); }
+.data-table tbody tr:last-child td { border-bottom: 0; }

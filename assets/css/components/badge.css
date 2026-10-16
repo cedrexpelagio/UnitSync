@@ -1,0 +1,142 @@
+/* ==========================================================================
+   Status badges
+   Soft-tinted pills.
+   ========================================================================== */
+
+/* Status Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--radius-badge);
+    text-transform: capitalize;
+}
+
+.badge-pending {
+    background-color: var(--warn-50);
+    color: var(--warn-800);
+}
+
+.badge-approved {
+    background-color: var(--ok-50);
+    color: var(--ok-800);
+}
+
+.badge-rejected {
+    background-color: var(--err-50);
+    color: var(--err-800);
+}
+
+.badge-deactivated {
+    background-color: var(--n-100);
+    color: var(--n-600);
+}
+
+.badge-active {
+    background-color: var(--ok-50);
+    color: var(--ok-800);
+}
+
+.badge-dropped {
+    background-color: var(--err-50);
+    color: var(--err-800);
+}
+
+.badge-transferred {
+    background-color: var(--warn-50);
+    color: var(--warn-800);
+}
+
+.badge-graduated {
+    background-color: var(--info-50);
+    color: var(--info-600);
+}
+
+.badge-inactive {
+    background-color: var(--n-100);
+    color: var(--n-600);
+}
+
+.badge-scheduled {
+    background-color: var(--info-50);
+    color: var(--info-600);
+}
+
+.badge-held {
+    background-color: var(--ok-50);
+    color: var(--ok-800);
+}
+
+.badge-cancelled {
+    background-color: var(--err-50);
+    color: var(--err-800);
+}
+
+.badge-draft {
+    background-color: var(--warn-50);
+    color: var(--warn-800);
+}
+
+.badge-submitted {
+    background-color: var(--info-50);
+    color: var(--info-600);
+}
+
+.badge-returned {
+    background-color: var(--err-50);
+    color: var(--err-800);
+}
+
+.badge-coming-soon {
+    background-color: var(--gray-50);
+    color: var(--n-400);
+    font-size: 11px;
+    margin-left: auto;
+}
+
+.badge-at-risk {
+    background-color: var(--err-50);
+    color: var(--err-800);
+    border: 1px solid var(--err-200);
+    font-weight: 600;
+}
+
+.formula-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--gray-300);
+    color: var(--gray-700);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: help;
+    margin-left: 4px;
+    vertical-align: middle;
+    border: none;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.formula-info-btn:hover {
+    background-color: var(--green-700);
+    color: var(--white);
+}
+
+.formula-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background-color: var(--green-100);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--green-900);
+}

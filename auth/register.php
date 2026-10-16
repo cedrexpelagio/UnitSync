@@ -343,6 +343,7 @@ $password_field = function (string $name, string $label, bool $with_meter) use (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - UnitSync</title>
+    <?php require __DIR__ . '/../includes/theme_head.php'; ?>
     <script>
         (function () {
             var d = document.documentElement;
@@ -357,6 +358,7 @@ $password_field = function (string $name, string $label, bool $with_meter) use (
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/auth.css?v=1">
 </head>
 <body class="ua" data-page="register">
+    <?php $theme_toggle_class = 'theme-toggle--floating'; require __DIR__ . '/../includes/theme_toggle.php'; ?>
     <div class="ua-topbar" aria-hidden="true"></div>
     <p class="ua-sr" id="uaLive" role="status" aria-live="polite"></p>
 
@@ -586,6 +588,7 @@ $password_field = function (string $name, string $label, bool $with_meter) use (
         </div>
     </main>
 
+    <script src="<?= BASE_URL ?>/assets/js/theme.js?v=1" defer></script>
     <script src="<?= BASE_URL ?>/assets/js/auth.js?v=1"></script>
 </body>
 </html>

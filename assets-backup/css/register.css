@@ -1,0 +1,476 @@
+/* =========================================================
+   UnitSync - Registration form (auth/register.php)
+   Load AFTER style.css. Uses the tokens defined in style.css.
+   Everything is prefixed reg- so other auth pages are untouched.
+   ========================================================= */
+
+/* ---------- Page + card ---------- */
+.auth-page.reg-page {
+    justify-content: flex-start;
+    padding: 40px 16px 56px;
+    background:
+        radial-gradient(900px 320px at 50% -80px, var(--green-100), transparent 70%),
+        var(--gray-50);
+}
+
+.reg-card.auth-card {
+    max-width: 660px;
+    padding: 0;
+    border-radius: 14px;
+    border-color: var(--gray-300);
+    box-shadow: 0 10px 30px rgba(36, 51, 33, 0.08), var(--card-shadow);
+    overflow: hidden;
+}
+
+.reg-header {
+    padding: 28px 32px 20px;
+    text-align: left;
+    background: linear-gradient(180deg, var(--white), var(--gray-50));
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.auth-card .reg-header h2 {
+    font-size: 22px;
+    margin-bottom: 6px;
+}
+
+.auth-card .reg-header p {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.reg-body {
+    padding: 8px 32px 28px;
+}
+
+/* ---------- Banners / error summary ---------- */
+.reg-banners {
+    padding: 20px 32px 0;
+}
+
+.reg-banners .banner {
+    margin-bottom: 12px;
+}
+
+.reg-summary {
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    background: #FDE8E8;
+    border: 1px solid #F8B4B4;
+    border-left: 4px solid var(--error);
+    border-radius: var(--radius-default);
+    color: var(--error);
+    font-size: 13px;
+}
+
+.reg-summary:focus { outline: none; box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.2); }
+
+.reg-summary strong { display: block; margin-bottom: 6px; }
+
+.reg-summary ul { margin-left: 18px; }
+
+.reg-summary a { color: var(--error); font-weight: 600; }
+
+/* ---------- Sections ---------- */
+.reg-section {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.reg-section:last-of-type { border-bottom: none; }
+
+.reg-section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.reg-step {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--white);
+    background: var(--green-700);
+    border-radius: 50%;
+}
+
+.reg-section-head h3 {
+    font-size: 16px;
+    color: var(--green-900);
+    line-height: 1.2;
+}
+
+.reg-section-head p {
+    font-size: 12px;
+    color: var(--gray-700);
+    margin-top: 2px;
+}
+
+/* ---------- Grid + fields ---------- */
+.reg-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+}
+
+.reg-col-2 { grid-column: span 2; }
+.reg-col-3 { grid-column: span 3; }
+.reg-col-6 { grid-column: span 6; }
+
+.reg-field { min-width: 0; }
+
+.reg-label {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-900);
+}
+
+.reg-req { color: var(--error); font-weight: 700; }
+.reg-opt { margin-left: auto; font-size: 11px; font-weight: 500; color: #8A9087; }
+
+.reg-hint {
+    display: block;
+    margin: -2px 0 6px;
+    font-size: 12px;
+    color: var(--gray-700);
+}
+
+.reg-card .form-control {
+    padding: 11px 14px;
+    border-radius: 10px;
+    border-color: #C4CAC0;
+    min-height: 44px;           /* comfortable touch target */
+}
+
+.reg-card .form-control::placeholder { color: #9AA096; }
+
+.reg-card .form-control:hover:not(:focus):not(.is-invalid) { border-color: var(--green-700); }
+
+.reg-card .form-control.is-invalid {
+    background-color: #FFF8F8;
+}
+
+.reg-card select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 36px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%234A4F47' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+}
+
+.reg-card .field-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.reg-card .field-error::before {
+    content: "!";
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--white);
+    background: var(--error);
+    border-radius: 50%;
+}
+
+/* Password eye button: bigger target, inside taller input */
+.reg-card .password-wrapper .form-control { padding-right: 48px; }
+.reg-card .password-toggle-btn { right: 6px; padding: 8px; }
+
+/* ---------- Auto-username note ---------- */
+.reg-note {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--info);
+    background: #E8F4FD;
+    border: 1px solid #BEE3F8;
+    border-radius: 10px;
+}
+
+.reg-note svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; }
+
+/* ---------- Password strength + checklist ---------- */
+.reg-meter {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.reg-meter span {
+    height: 4px;
+    border-radius: 4px;
+    background: var(--gray-300);
+    transition: background-color var(--transition-speed) ease-out;
+}
+
+.reg-meter[data-level="1"] span:nth-child(-n+1) { background: var(--error); }
+.reg-meter[data-level="2"] span:nth-child(-n+2) { background: var(--warning); }
+.reg-meter[data-level="3"] span:nth-child(-n+3) { background: #7BA23A; }
+.reg-meter[data-level="4"] span:nth-child(-n+4) { background: var(--success); }
+
+.reg-meter-label {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
+    min-height: 18px;
+}
+
+.reg-rules {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    margin-top: 6px;
+}
+
+.reg-rules li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #8A9087;
+    transition: color var(--transition-speed) ease-out;
+}
+
+.reg-rules li::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid #B8BEB4;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 9px;
+    transition: all var(--transition-speed) ease-out;
+}
+
+.reg-rules li.is-met { color: var(--success); }
+
+.reg-rules li.is-met::before {
+    border-color: var(--success);
+    background-color: var(--success);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+}
+
+.reg-match {
+    margin-top: 6px;
+    min-height: 18px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.reg-match.ok  { color: var(--success); }
+.reg-match.bad { color: var(--error); }
+
+/* ---------- Role cards ---------- */
+.reg-roles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.reg-role { position: relative; display: block; margin: 0; cursor: pointer; }
+
+/* Visually hidden but still focusable, so keyboard use and the browser's
+   "please select one" message both work. */
+.reg-role input[type="radio"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
+.reg-role-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: 100%;
+    padding: 14px 34px 14px 48px;
+    position: relative;
+    background: var(--white);
+    border: 1.5px solid var(--gray-300);
+    border-radius: 12px;
+    transition: border-color var(--transition-speed) ease-out,
+                background-color var(--transition-speed) ease-out,
+                box-shadow var(--transition-speed) ease-out;
+}
+
+.reg-role-icon {
+    position: absolute;
+    left: 12px;
+    top: 14px;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+    color: var(--green-700);
+    background: var(--green-100);
+    border-radius: 8px;
+    transition: all var(--transition-speed) ease-out;
+}
+
+.reg-role-title { font-size: 14px; font-weight: 700; color: var(--green-900); }
+.reg-role-desc  { font-size: 12px; line-height: 1.4; color: var(--gray-700); }
+
+.reg-role:hover .reg-role-body { border-color: var(--green-700); }
+
+.reg-role input:checked + .reg-role-body {
+    border-color: var(--green-700);
+    background: var(--green-100);
+    box-shadow: 0 0 0 3px rgba(59, 82, 50, 0.15);
+}
+
+.reg-role input:checked + .reg-role-body .reg-role-icon {
+    color: var(--white);
+    background: var(--green-700);
+}
+
+/* check mark in the corner of the selected card */
+.reg-role input:checked + .reg-role-body::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--green-700);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-size: 10px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.reg-role input:focus-visible + .reg-role-body { box-shadow: 0 0 0 3px var(--gold-500); }
+
+.reg-roles.is-invalid .reg-role-body { border-color: var(--error); }
+
+/* ---------- Role-specific group (program / platoon) ---------- */
+.reg-group { margin-top: 16px; }
+
+/* Without JS both groups stay visible. With JS only the active one shows. */
+.js .reg-group[data-role-group]:not(.is-visible) { display: none; }
+
+.js .reg-group.is-visible { animation: reg-reveal 200ms ease-out; }
+
+@keyframes reg-reveal {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.reg-group-box {
+    padding: 14px 16px;
+    background: var(--gray-50);
+    border: 1px dashed #C4CAC0;
+    border-radius: 12px;
+}
+
+/* ---------- Consent ---------- */
+.reg-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 16px;
+    background: var(--gold-100);
+    border: 1px solid #F0DFA0;
+    border-radius: 12px;
+}
+
+.reg-consent input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    accent-color: var(--green-700);
+    cursor: pointer;
+}
+
+.reg-consent label {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--gray-700);
+    cursor: pointer;
+}
+
+.reg-consent.is-invalid { border-color: var(--error); background: #FFF8F8; }
+
+/* ---------- Submit ---------- */
+.reg-actions { margin-top: 20px; }
+
+.reg-submit {
+    position: relative;
+    min-height: 48px;
+    font-size: 15px;
+    border-radius: 12px;
+}
+
+.reg-submit.is-loading {
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+.reg-submit.is-loading::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: reg-spin 700ms linear infinite;
+}
+
+@keyframes reg-spin { to { transform: rotate(360deg); } }
+
+.reg-login {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 13px;
+}
+
+/* ---------- Tablet / mobile ---------- */
+@media (max-width: 640px) {
+    .auth-page.reg-page { padding: 20px 12px 40px; }
+
+    .reg-header  { padding: 22px 20px 16px; }
+    .reg-banners { padding: 16px 20px 0; }
+    .reg-body    { padding: 4px 20px 24px; }
+
+    .reg-col-2,
+    .reg-col-3 { grid-column: span 6; }
+
+    .reg-roles { grid-template-columns: 1fr; }
+    .reg-rules { grid-template-columns: 1fr; }
+}

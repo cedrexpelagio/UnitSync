@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Form controls
+   Labels are quiet, inputs are obvious. Focus = accent border + soft ring.
+   ========================================================================== */
+
+.form-group { margin-bottom: var(--sp-4); }
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--ink);
+}
+.form-group .field-hint { display: block; margin-bottom: 6px; font-size: var(--fs-xs); color: var(--muted); }
+
+.form-control {
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: var(--fs-md);
+    color: var(--ink);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    outline: none;
+    transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+.form-control::placeholder { color: var(--faint); }
+.form-control:hover { border-color: var(--n-400); }
+.form-control:focus { border-color: var(--a-600); box-shadow: var(--ring); }
+.form-control:disabled, .form-control[readonly] { background-color: var(--surface-sunk); color: var(--muted); }
+.form-control.is-invalid { border-color: var(--err-600); }
+.form-control.is-invalid:focus { box-shadow: 0 0 0 3px rgba(179, 38, 30, .18); }
+
+.password-wrapper { position: relative; display: flex; align-items: center; }
+.password-wrapper .form-control { padding-right: 42px; }
+.password-toggle-btn {
+    position: absolute; right: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 6px; background: none; border: 0; border-radius: var(--r-sm);
+    color: var(--faint); cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+}
+.password-toggle-btn:hover { color: var(--ink); background: var(--hover); }
+.password-toggle-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.field-error { display: block; margin-top: 6px; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--err-600); }
+
+.checkbox-group { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-4) 0; }
+.checkbox-group input[type="checkbox"] { width: 16px; height: 16px; margin-top: 3px; accent-color: var(--accent); }
+.checkbox-group label { font-size: var(--fs-sm); line-height: 1.4; color: var(--ink-2); }

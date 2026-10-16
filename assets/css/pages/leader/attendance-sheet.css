@@ -1,0 +1,284 @@
+/* ==========================================================================
+   Leader: take-attendance sheet
+   The product's core task. P / L / A / E pills, sticky name column, submit bar.
+   ========================================================================== */
+
+/* Attendance Sheet & Taking UI */
+.attendance-session-strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.session-card-pill {
+    flex: 0 0 auto;
+    min-width: 170px;
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+    padding: 12px 14px;
+    text-decoration: none;
+    color: inherit;
+    transition: all var(--transition-speed) var(--ease-out);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.session-card-pill:hover:not(.disabled) {
+    border-color: var(--green-600);
+    box-shadow: var(--shadow-xs);
+}
+
+.session-card-pill.active {
+    border-color: var(--green-700);
+    background-color: var(--green-100);
+    box-shadow: var(--shadow-xs);
+}
+
+.session-card-pill.disabled {
+    opacity: 0.6;
+    background: var(--gray-50);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.session-card-pill .session-date {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-700);
+}
+
+.session-card-pill .session-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--green-900);
+}
+
+.attendance-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 16px 20px;
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-default);
+}
+
+.att-counter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-300);
+    color: var(--gray-700);
+}
+
+.save-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
+    transition: color var(--dur-2) var(--ease-out);
+}
+
+.save-indicator.saving {
+    color: var(--warning);
+}
+
+.save-indicator.saved {
+    color: var(--success);
+}
+
+.save-indicator.error {
+    color: var(--error);
+}
+
+/* Radio button pills for Attendance P, A, L, E */
+.att-radio-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--gray-50);
+    padding: 3px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--gray-300);
+}
+
+.att-radio-label {
+    position: relative;
+    cursor: pointer;
+    margin: 0;
+}
+
+.att-radio-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.att-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--gray-700);
+    background: transparent;
+    transition: all var(--dur-1) var(--ease-out);
+    user-select: none;
+}
+
+.att-radio-label:hover .att-btn {
+    background: var(--white);
+    box-shadow: var(--shadow-xs);
+}
+
+/* Checked button styles */
+.att-radio-label.opt-p input[type="radio"]:checked + .att-btn {
+    background-color: var(--ok-600);
+    color: var(--n-0);
+    box-shadow: var(--shadow-xs);
+}
+
+.att-radio-label.opt-a input[type="radio"]:checked + .att-btn {
+    background-color: var(--err-600);
+    color: var(--n-0);
+    box-shadow: var(--shadow-xs);
+}
+
+.att-radio-label.opt-l input[type="radio"]:checked + .att-btn {
+    background-color: var(--warn-600);
+    color: var(--n-0);
+    box-shadow: var(--shadow-xs);
+}
+
+.att-radio-label.opt-e input[type="radio"]:checked + .att-btn {
+    background-color: var(--info-600);
+    color: var(--n-0);
+    box-shadow: var(--shadow-xs);
+}
+
+.att-clear-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--gray-500);
+    cursor: pointer;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.att-clear-btn:hover {
+    color: var(--gray-700);
+    background: var(--gray-200);
+}
+
+/* Sticky column for cadet name */
+.sticky-cadet-col {
+    position: sticky;
+    left: 0;
+    background-color: var(--white);
+    z-index: 5;
+    box-shadow: var(--shadow-xs);
+}
+
+.data-table thead th.sticky-cadet-col {
+    background-color: var(--gray-50);
+    z-index: 6;
+}
+
+.data-table tbody tr:hover td.sticky-cadet-col {
+    background-color: var(--green-100);
+}
+
+.cadet-details-subtext {
+    font-size: 11px;
+    color: var(--gray-700);
+    margin-top: 2px;
+}
+
+.att-extra-inputs {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.att-extra-inputs input {
+    font-size: 12px;
+    padding: 6px 8px;
+    height: auto;
+}
+
+/* Submit & Notice Banner Styles */
+.banner-notice {
+    padding: 14px 18px;
+    border-radius: var(--radius-default);
+    margin-bottom: 20px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.banner-notice-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+}
+
+.banner-submitted-warning {
+    background-color: var(--warn-50);
+    border: 1px solid var(--warn-600);
+    color: var(--warn-800);
+}
+
+.banner-returned-alert {
+    background-color: var(--warn-50);
+    border: 1px solid var(--warn-200);
+    color: var(--warn-600);
+}
+
+.banner-locked-info {
+    background-color: var(--ok-50);
+    border: 1px solid var(--ok-200);
+    color: var(--ok-800);
+}
+
+.btn-submit-attendance {
+    background-color: var(--green-700);
+    color: var(--white);
+    font-weight: 600;
+}
+
+.btn-submit-attendance:hover:not(:disabled) {
+    background-color: var(--green-900);
+}
+
+.btn-submit-attendance:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background-color: var(--gray-400);
+    border-color: var(--gray-400);
+}

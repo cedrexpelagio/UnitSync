@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Banners and flash messages
+   Inline status communication.
+   ========================================================================== */
+
+/* Status Banners */
+.banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-default);
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.banner-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.banner-info {
+    background-color: var(--info-50);
+    border: 1px solid var(--info-200);
+    color: var(--info);
+}
+
+.banner-warning {
+    background-color: var(--warn-50);
+    border: 1px solid var(--warn-200);
+    color: var(--warn-800);
+}
+
+.banner-error {
+    background-color: var(--err-50);
+    border: 1px solid var(--err-200);
+    color: var(--error);
+}
+
+.banner-success {
+    background-color: var(--green-100);
+    border: 1px solid var(--ok-200);
+    color: var(--success);
+}
+
+/* Flash Messages */
+.flash-container {
+    margin-bottom: 20px;
+}
+
+.flash-message {
+    padding: 12px 16px;
+    border-radius: var(--radius-default);
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.flash-success {
+    background-color: var(--green-100);
+    color: var(--success);
+    border: 1px solid var(--ok-200);
+}
+
+.flash-error {
+    background-color: var(--err-50);
+    color: var(--error);
+    border: 1px solid var(--err-200);
+}
+
+.flash-warning {
+    background-color: var(--warn-50);
+    color: var(--warn-800);
+    border: 1px solid var(--warn-200);
+}
+
+.flash-info {
+    background-color: var(--info-50);
+    color: var(--info);
+    border: 1px solid var(--info-200);
+}
