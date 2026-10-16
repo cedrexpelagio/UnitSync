@@ -18,6 +18,7 @@ $page_title = $page_title ?? 'UnitSync';
     <title><?= e($page_title) ?> - UnitSync</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/app-shell.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/chat.css">
     <script src="<?= BASE_URL ?>/assets/js/app-shell.js" defer></script>
     <script src="<?= BASE_URL ?>/assets/js/theme.js" defer></script>
 </head>
